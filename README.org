@@ -1,0 +1,31 @@
+* orm-weihnachten
+
+  reactive framework for clog guis.
+
+*** Ugo Finnendahl <ugogon@hotmail.de>
+
+    Es sind am Ende eigentlich nur zwei Dateien relevant: =main.lisp=,
+    =components.js=. Dann gibt es noch =utils.js=, =style.css= und
+    =start.html= die das Ganze zusammen halten. Gerne erkläre ich Dir,
+    was ich mit =style.css= noch alles vor hatte. Aber für Dich
+    relvant sind erstmal =main.lisp= und =components.js=. Viel Spaß
+    beim rein gucken.
+
+*** Orm Finnendahl <orm-finnendahl@selma.hfmdk-frankfurt.de>
+
+    Habe noch ein asd Projekt daraus gemacht.
+
+** License
+
+   gpl 2.0 or later. See =LICENSE=
+
+** Install
+
+   - clone this repository into =$HOME/quicklisp/local-projects=
+
+   - Start lisp and issue =(ql:quickload :orm-weihnachten)=
+
+   - Issue =(orm-weihnachten:start)=
+   
+   - Enjoy!
+
