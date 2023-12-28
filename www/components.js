@@ -20,7 +20,8 @@ export function knob(props) {
   });
 
   // these are our properties: value, min and max
-  // use Signal returns a singleton so we get the same signal everytime.
+    // useSignal() returns a singleton so we get the same signal
+    // everytime.
   const val = useSignal();
   val.value = parseFloat(props.value);
   const min = useSignal();
@@ -64,10 +65,8 @@ export function knob(props) {
   // and: https://github.com/developit/htm for the used tag function
   return html`
     <div class="knob" ref=${elem}>
-      <svg ref=${svg} onMouseDown=${onMouseDownHandler(mm)} onTouchStart=${onTouchStartHandler(mm)} viewBox="0 0 16 16">
-        <path d="${d1}" stroke="darkgreen" fill="none" stroke-width="2" />
-        <path d="${d2}" stroke="darkgreen" fill="none" stroke-width="2" />
-        <circle />
+      <svg ref=${svg} xmlns="http://www.w3.org/2000/svg" onMouseDown=${onMouseDownHandler(mm)} onTouchStart=${onTouchStartHandler(mm)} viewBox="0 0 16 16">
+        <path d="${d1}" stroke="lightgreen" fill="none" stroke-width="2" />
         <line x1="50%" y1="50%" x2=${x} y2=${y} id="pointer" />
       </svg>
       <span class="value">${val}</span>

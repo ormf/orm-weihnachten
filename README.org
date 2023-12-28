@@ -2,7 +2,7 @@
 
   reactive framework for clog guis.
 
-*** Ugo Finnendahl <ugogon@hotmail.de>
+*** Original
 
     Es sind am Ende eigentlich nur zwei Dateien relevant: =main.lisp=,
     =components.js=. Dann gibt es noch =utils.js=, =style.css= und

@@ -125,17 +125,14 @@ whenever any value in f changes."
   unwatch)
 
 (defun bind-var-to-attr (name refvar attr &optional (map (lambda (val) val)))
-  (if (not (gethash name *bindings*))
-      (progn
-        (setf (gethash name *bindings*) (make-binding :ref refvar :attr attr :elist '() :map map :unwatch '()))
-        (setf (b-unwatch (gethash name *bindings*))
+  (or (gethash name *bindings*) ;;; or returns the first non-nil argument and skips evaluating the rest of its args.
+      (let ((new (make-binding :ref refvar :attr attr :elist '() :map map :unwatch '())))
+        (setf (b-unwatch new)
               (watch (lambda ()
-                       (let ((val (getr refvar))
-                             (l (b-elist (gethash name *bindings*))))
-                         (dolist (obj l)
-                           (setf (attribute obj attr) val))))))))
-  (gethash name *bindings*))
-
+                       (let ((val (getr refvar)))
+                         (dolist (obj (b-elist new))
+                           (setf (attribute obj attr) val))))))
+        (setf (gethash name *bindings*) new)))) ;;; (setf (gethash...) ) returns the value which got set (new in this case).
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                       clog part                                            ;;
