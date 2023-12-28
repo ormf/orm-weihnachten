@@ -16,7 +16,7 @@ export function knob(props) {
   const elem = createRef();
   // beforeunload gets called before we close the window.
   addEventListener("beforeunload", (event) => {
-    $(elem.current.parentNode).trigger("data", {close: true});
+      elem.current ? $(elem.current.parentNode).trigger("data", {close: true}) : false;
   });
 
   // these are our properties: value, min and max
@@ -39,10 +39,12 @@ export function knob(props) {
   const percentage = useComputed(() => (val.value-min.value) / range.value)
   const step = useSignal(parseFloat(props.step || 1));
   const sensitivity = useSignal(parseFloat(props.sensitivity || 200));
-  const x = useComputed(() => 8*Math.cos(percentage.value*Math.PI*2-(Math.PI/2))+8)
-  const y = useComputed(() => 8*Math.sin(percentage.value*Math.PI*2-(Math.PI/2))+8)
-  const d1 = useComputed(() => percentage.value <= 0.5 ? `M 8 0 A 8 8 0 0 1 ${x} ${y}` : `M 8 0 A 8 8 0 0 1 8 16`)
-  const d2 = useComputed(() => percentage.value > 0.5 ? `M 8 16 A 8 8 0 0 1 ${x} ${y}` : `M 8 16 A 8 8 0 0 1 8 16`)
+  const x = useComputed(() => -8*Math.cos(percentage.value*Math.PI*2-(Math.PI/2))+8)
+  const y = useComputed(() => -8*Math.sin(percentage.value*Math.PI*2-(Math.PI/2))+8)
+  const xl = useComputed(() => -9*Math.cos(percentage.value*Math.PI*2-(Math.PI/2))+8)
+  const yl = useComputed(() => -9*Math.sin(percentage.value*Math.PI*2-(Math.PI/2))+8)
+  const d1 = useComputed(() => percentage.value <= 0.5 ? `M 8 16 A 8 8 180 0 1 ${x} ${y}` : `M 8 16 A 8 8 180 0 1 8 0`)
+  const d2 = useComputed(() => percentage.value > 0.5 ? `M 8 0 A 8 8 180 0 1 ${x} ${y}` : `M 8 0 A 8 8 180 0 1 8 0`)
   // this is a weird construct I usually use it to avoid writing my mousemove eventhandlers over and over again.
   // it is basically a getter and a setter that gets called whenever the mouse moves (after it got registered see below).
   const mm = {
@@ -53,8 +55,8 @@ export function knob(props) {
       return 0;
     },
     set x(value) {
-      let n = Math.round((value*range.value/sensitivity.value)/step.value)*step.value
-      val.value = Math.max(min.value, Math.min(max.value,this._x+n));
+        let n = Math.round((value*range.value/sensitivity.value)/step.value)*step.value
+        val.value = Math.max(min.value, Math.min(max.value,this.x+n));
       return true;
     }
   }
@@ -66,8 +68,11 @@ export function knob(props) {
   return html`
     <div class="knob" ref=${elem}>
       <svg ref=${svg} xmlns="http://www.w3.org/2000/svg" onMouseDown=${onMouseDownHandler(mm)} onTouchStart=${onTouchStartHandler(mm)} viewBox="0 0 16 16">
+        <path d="M 8 16 A 8 8 180 0 1 8 0" stroke="#444444" fill="none" stroke-width="2" />
+        <path d="M 8 0 A 8 8 180 0 1 8 16" stroke="#444444" fill="none" stroke-width="2" />
         <path d="${d1}" stroke="lightgreen" fill="none" stroke-width="2" />
-        <line x1="50%" y1="50%" x2=${x} y2=${y} id="pointer" />
+        <path d="${d2}" stroke="lightgreen" fill="none" stroke-width="2" />
+        <line x1="50%" y1="50%" x2=${xl} y2=${yl} id="pointer" />
       </svg>
       <span class="value">${val}</span>
     </div>

@@ -211,7 +211,7 @@ whenever any value in f changes."
 (defun start ()
   ;; Initialize the CLOG system with my boot file and my static files (I have no idea if this is the right way).
   (initialize #'on-new-window
-              :static-root (merge-pathnames "./www/" (asdf:system-source-directory :orm-weihnachten))
+              :static-root (merge-pathnames "www/" (asdf:system-source-directory :orm-weihnachten))
               :boot-file "/start.html")
   ;; Open a browser to http://127.0.0.1:8080 - the default for CLOG apps
   (open-browser))
