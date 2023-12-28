@@ -169,10 +169,13 @@ whenever any value in f changes."
     (set-on-data element
                  (lambda (obj data)
 		   (declare (ignore obj))
+;;                   (break "~a" (setf *test* data))
                    (if (gethash "close" data)
                        (setf (b-elist binding) (remove element (b-elist binding)))
 		   ; else
                        (setr var (gethash attr data)))))))
+
+(defparameter *test* nil)
 
 ; this is just how I would structure such a dynamic website. With a 12 column layout with collection of input elements
 (defun create-collection (parent width)

@@ -60,10 +60,9 @@ export function knob(props) {
     const largeArcFlag2 = useComputed(() => percentage < 0.42 ? 1 : 0)
     const d2 = useComputed(() => `M ${endpoint.x} ${endpoint.y} A 8 8 0 ${largeArcFlag2} 0 ${xb} ${yb}`)
     const d1 = useComputed(() => `M ${xa} ${ya} A 8 8 0 ${largeArcFlag1} 0 ${startpoint.x} ${startpoint.y}`)
-  // this is a weird construct I usually use it to avoid writing my mousemove eventhandlers over and over again.
-    // it is basically a getter and a setter that gets called whenever the mouse moves (after it got registered see below).
 
-    const d3 = useComputed(() => `M 0.0074190716657049904 8.344456243994639 A 8 8 0 0 0 5.929447639179833 15.727406610312546`)
+    // this is a weird construct I usually use it to avoid writing my mousemove eventhandlers over and over again.
+    // it is basically a getter and a setter that gets called whenever the mouse moves (after it got registered see below).
   const mm = {
     y: 0,
     _x: 0,
@@ -89,10 +88,10 @@ export function knob(props) {
     <div class="knob" ref=${elem}>
       <svg ref=${svg} xmlns="http://www.w3.org/2000/svg" onMouseDown=${onMouseDownHandler(mm)} onTouchStart=${onTouchStartHandler(mm)} viewBox="0 0 16 16">
         <path d="${d1}" stroke="lightgreen" fill="none" stroke-width="2" />
-        <path d="${d2}" stroke="#444444" fill="none" stroke-width="2" />
+        <path d="${d2}" stroke="#222" fill="none" stroke-width="2" />
         <line x1="50%" y1="50%" x2=${xl} y2=${yl} id="pointer" />
       </svg>
-      <span class="value">${val}</span>
+      <span class="value">${val} Hz</span>
     </div>
   `
 }

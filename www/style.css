@@ -9,7 +9,7 @@ body{
   outline: 1px solid red;
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  background-color: grey;
+  background-color: #444;
   font-family: sans-serif;
 }
 
@@ -59,12 +59,14 @@ input {
 o-knob {
     --half-stroke: calc(var(--stroke-width, 1px) / 2);
     display: block;
-    margin: 1em 0.75em;
+    padding: 1em 0.75em;
 }
 .knob {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-left: 5pt;
+  padding-right: 5pt;
 }
 .knob svg {
     width: 2em;
@@ -77,18 +79,23 @@ o-knob {
     cx : 50%;
     cy : 50%;
     fill: var(--fill-color, #fff);
-    stroke-width: var(--stoke-width, 1);
+    stroke-width: var(--stroke-width, 1);
     stroke: var(--stroke-color, #000);
 }
 .knob #pointer {
-    stroke-width: var(--stoke-width, 1);
+    stroke-width: var(--stroke-width, 1);
     stroke: var(--stroke-color, #000);
     transform-origin: center center;
 }
 
 .knob .value{
-  margin-top: 0.2em;
+  margin-top: 15%;
   display: flex;
   justify-content: center;
-  width: 10px;
+  font-size: 55%;
+  color: #ddd;
+  -webkit-user-select: none; /* Safari */
+  -ms-user-select: none; /* IE 10 and IE 11 */
+  user-select: none; /* Standard syntax */
+  width: 40pt;
 }
