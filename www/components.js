@@ -34,19 +34,36 @@ export function knob(props) {
     elem.current ? $(elem.current.parentNode).trigger("data", {value: value}) : ""
   });
 
+    function polarToCartesian(centerX, centerY, radius, degrees) {
+        var angleInRadians = (Math.PI * (degrees + 90) / 180);
+
+        return {
+            x: centerX + (radius * Math.cos(angleInRadians)),
+            y: centerY + (radius * Math.sin(angleInRadians))
+        };
+    }
+    
   // these are also singletons. These are derived values that get updated everytime a relevant signal changes.
-  const range = useComputed(() => max.value - min.value)
-  const percentage = useComputed(() => (val.value-min.value) / range.value)
-  const step = useSignal(parseFloat(props.step || 1));
-  const sensitivity = useSignal(parseFloat(props.sensitivity || 200));
-  const x = useComputed(() => -8*Math.cos(percentage.value*Math.PI*2-(Math.PI/2))+8)
-  const y = useComputed(() => -8*Math.sin(percentage.value*Math.PI*2-(Math.PI/2))+8)
-  const xl = useComputed(() => -9*Math.cos(percentage.value*Math.PI*2-(Math.PI/2))+8)
-  const yl = useComputed(() => -9*Math.sin(percentage.value*Math.PI*2-(Math.PI/2))+8)
-  const d1 = useComputed(() => percentage.value <= 0.5 ? `M 8 16 A 8 8 180 0 1 ${x} ${y}` : `M 8 16 A 8 8 180 0 1 8 0`)
-  const d2 = useComputed(() => percentage.value > 0.5 ? `M 8 0 A 8 8 180 0 1 ${x} ${y}` : `M 8 0 A 8 8 180 0 1 8 0`)
+    const range = useComputed(() => max.value - min.value)
+    const percentage = useComputed(() => (val.value-min.value) / range.value)
+    const step = useSignal(parseFloat(props.step || 1));
+    const sensitivity = useSignal(parseFloat(props.sensitivity || 200));
+    const startpoint = polarToCartesian(8,8,8,18);
+    const endpoint = polarToCartesian(8,8,8,342);
+    const xa = useComputed(() => (8*Math.cos(Math.PI * ((percentage.value*324)+108) / 180))+8)
+    const ya = useComputed(() => (8*Math.sin(Math.PI * ((percentage.value*324)+108) / 180))+8)
+    const xb = useComputed(() => (8*Math.cos(Math.PI * Math.min(432, ((percentage.value*324)+116)) / 180))+8)
+    const yb = useComputed(() => (8*Math.sin(Math.PI * Math.min(432, ((percentage.value*324)+116)) / 180))+8)
+    const xl = useComputed(() => -9*Math.cos((0.05 + (percentage.value * 0.9))*Math.PI*2-(Math.PI/2))+8)
+    const yl = useComputed(() => -9*Math.sin((0.05 + (percentage.value * 0.9))*Math.PI*2-(Math.PI/2))+8)
+    const largeArcFlag1 = useComputed(() => percentage < 0.56 ? 0 : 1)
+    const largeArcFlag2 = useComputed(() => percentage < 0.42 ? 1 : 0)
+    const d2 = useComputed(() => `M ${endpoint.x} ${endpoint.y} A 8 8 0 ${largeArcFlag2} 0 ${xb} ${yb}`)
+    const d1 = useComputed(() => `M ${xa} ${ya} A 8 8 0 ${largeArcFlag1} 0 ${startpoint.x} ${startpoint.y}`)
   // this is a weird construct I usually use it to avoid writing my mousemove eventhandlers over and over again.
-  // it is basically a getter and a setter that gets called whenever the mouse moves (after it got registered see below).
+    // it is basically a getter and a setter that gets called whenever the mouse moves (after it got registered see below).
+
+    const d3 = useComputed(() => `M 0.0074190716657049904 8.344456243994639 A 8 8 0 0 0 5.929447639179833 15.727406610312546`)
   const mm = {
     y: 0,
     _x: 0,
@@ -61,17 +78,18 @@ export function knob(props) {
     }
   }
 
-
+ 
   // html parses the string and turns it into a DOM like object. `Backtick strings and ${jscode} are JavaScripts template strings`.
   // More info: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
   // and: https://github.com/developit/htm for the used tag function
-  return html`
+
+//        <path d="${d1}" stroke="#444444" fill="none" stroke-width="2" />
+
+    return html`
     <div class="knob" ref=${elem}>
       <svg ref=${svg} xmlns="http://www.w3.org/2000/svg" onMouseDown=${onMouseDownHandler(mm)} onTouchStart=${onTouchStartHandler(mm)} viewBox="0 0 16 16">
-        <path d="M 8 16 A 8 8 180 0 1 8 0" stroke="#444444" fill="none" stroke-width="2" />
-        <path d="M 8 0 A 8 8 180 0 1 8 16" stroke="#444444" fill="none" stroke-width="2" />
         <path d="${d1}" stroke="lightgreen" fill="none" stroke-width="2" />
-        <path d="${d2}" stroke="lightgreen" fill="none" stroke-width="2" />
+        <path d="${d2}" stroke="#444444" fill="none" stroke-width="2" />
         <line x1="50%" y1="50%" x2=${xl} y2=${yl} id="pointer" />
       </svg>
       <span class="value">${val}</span>
