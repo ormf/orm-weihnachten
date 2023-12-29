@@ -14,10 +14,11 @@ function changer(props) {
         y: event.clientY
       };
     }
-    const deltaX = (targetPoint.x - anchorPoint.x);
-    const deltaY = (targetPoint.y - anchorPoint.y);
-    const newX = anchorProps.x + deltaX;
-    const newY = anchorProps.y + deltaY;
+      const deltaX = (targetPoint.x - anchorPoint.x);
+      const deltaY = (targetPoint.y - anchorPoint.y);
+      const newX = anchorProps.x + deltaX;
+      const newY = anchorProps.y + deltaY;
+
     if ("x" in props){
       props.x = newX;
       props.y = newY;
@@ -42,16 +43,18 @@ export function cancelMouse(move) {
 export function onMouseDownHandler(pt) {
   function f(event) {
       anchorPoint = {
-        x: event.clientX,
-        y: event.clientY
+          x: event.clientX,
+          y: event.clientY
       };
       anchorProps = {}
       if ("x" in pt){
-        anchorProps.x = pt.x;
-        anchorProps.y = pt.y;
+          anchorProps.x = pt.x;
+          anchorProps.y = pt.y;
+          pt.startvalue = pt.wert.value;
       } else {
-        anchorProps.x = pt[0];
-        anchorProps.y = pt[1];
+          anchorProps.x = pt[0];
+          anchorProps.y = pt[1];
+          pt.start = pt[2].value;
       }
       const fun = changer(pt);
       window.addEventListener("mousemove", fun);
