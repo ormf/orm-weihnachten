@@ -50,11 +50,9 @@ export function onMouseDownHandler(pt) {
       if ("x" in pt){
           anchorProps.x = pt.x;
           anchorProps.y = pt.y;
-          pt.startvalue = pt.wert.value;
       } else {
           anchorProps.x = pt[0];
           anchorProps.y = pt[1];
-          pt.start = pt[2].value;
       }
       const fun = changer(pt);
       window.addEventListener("mousemove", fun);

@@ -64,16 +64,29 @@ export function knob(props) {
     // this is a weird construct I usually use it to avoid writing my mousemove eventhandlers over and over again.
     // it is basically a getter and a setter that gets called whenever the mouse moves (after it got registered see below).
     const mm = {
-        y: 0,
+        _y: 0,
         _x: 0,
         wert: val,
         startvalue: 0,
         get x() {
-            this._x = val.value;
+            this.startvalue = val.value;
             return 0;
         },
         set x(value) {
-            let n = Math.round((value*range.value/sensitivity.value)/step.value)*step.value
+            this._x = value;
+            let n = Math.round(((this._x+this._y)*range.value/sensitivity.value)/step.value)*step.value
+            val.value = Math.max(min.value, Math.min(max.value,this.startvalue+n));
+            return true;
+        }
+        ,
+        get y() {
+            this.startvalue = val.value;
+            return 0;
+        },
+        
+        set y(value) {
+            this._y = (-1 * value);
+            let n = Math.round(((this._x+this._y)*range.value/sensitivity.value)/step.value)*step.value
             val.value = Math.max(min.value, Math.min(max.value,this.startvalue+n));
             return true;
         }
