@@ -32,11 +32,13 @@
     (unless (equal val old)) ;;; unless is the opposite of when; when/unless
 			     ;;; don't need progn, because ther is no
 			     ;;; else clause.
-       (if setter
-         (funcall setter val) ; update val if fun is not defined? Not sure/needed yet
+    (if setter
+        (progn
+;;          (if *debug* (format t "~&setter: ~a~%" setter))
+          (funcall setter val src)) ; update val if fun is not defined? Not sure/needed yet
          (setf (ro-value ref) val))
        (dolist (listener (ro-listeners ref))
-         (unless (eql src listener)
+         (unless (member listener src)
            (funcall listener old val src))))
   (ro-value ref))
 
@@ -82,8 +84,9 @@ automagic update whenever any value in f changes."
 ;;; we have to update listeners manually as we did not use setr to set the ro-value three lines above.
 		(unless (equal (ro-value co) old)
 		  (dolist (listener (ro-listeners co))
-		    (unless (eql listener src)
-                      (funcall listener old (ro-value co) src))))))
+		    (unless (member listener src)
+                      (funcall listener old (ro-value co) src)
+                      (push listener src))))))
 	    co))
     (funcall (ro-update co))))
 
@@ -110,7 +113,7 @@ automagic update whenever any value in f changes."
 ;;; just a helper function. I heard you like to copy variables. This is how to copy a ref:
 (defun copy (ref)
   (computed (lambda () (getr ref))
-            (lambda (val) (setr ref val))))
+            (lambda (val &optional src) (setr ref val src))))
 
 ; clog extension to integrate reactive with clog
 
@@ -135,9 +138,10 @@ automagic update whenever any value in f changes."
                (lambda (&optional src)
                  (let ((val (getr refvar)))
                    (dolist (obj (b-elist new)) ;;; iterate through all bound html elems
-                     (unless (equal obj src)
+                     (unless (member obj src)
                        (if *debug* (format t "~&watch update: ~a -> ~a ~a~%" src obj val))
-                       (setf (attribute obj attr) val)))))))
+                       (setf (attribute obj attr) val)
+                       (push obj src)))))))
         (setf (gethash name *bindings*) new)))) ;;; (setf (gethash...) ) returns the value which got set (new in this case).
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -183,7 +187,7 @@ automagic update whenever any value in f changes."
                                                                                  (gethash attr data))))
                    (if (gethash "close" data)
                        (setf (b-elist binding) (remove element (b-elist binding))) ;;; cleanup: unregister elem.
-                       (setr var (gethash attr data) element))))))
+                       (setr var (gethash attr data) (list element)))))))
 
 (defparameter *test* nil)
 
@@ -200,9 +204,6 @@ automagic update whenever any value in f changes."
 
 ;;; we need to define our variables
 (defparameter x (ref 5.))
-(defparameter y (ref 10.))
-(defparameter sum (computed (lambda () (+ (getr y) (getr x)))
-                  (lambda (val) (setr x (float (/ val 2))) (setr y (float (/ val 2))))))
 
 (defun rms->db (amp)
   (if (zerop amp)
@@ -212,7 +213,7 @@ automagic update whenever any value in f changes."
 (defun db->rms (db)
   (expt 10 (/ db 20)))
 
-(defparameter *debug* nil)
+(defparameter *debug* t)
 
 (defparameter x-db
   (computed
@@ -220,17 +221,24 @@ automagic update whenever any value in f changes."
      (progn
        (if *debug* (format t "~&recalc x->dB~%"))
        (min 0 (max -40 (round (rms->db (getr x)))))))
-   (lambda (val) ;;; this->referred val or vals
+   (lambda (val &optional src) ;;; this->referred val or vals
      (progn
        (if *debug* (format t "~&recalc dB->x: ~a~%" val))
-       (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val))))))))))
+       (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val))))) src)))))
 
 (progn
   (clear-bindings)
   (setf x (ref 10))
   (setf x-db
-        (computed (lambda () (min 0 (max -40 (round (rms->db (getr x))))))
-                  (lambda (val) (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val)))))))))
+        (computed
+         (lambda () ;;; referred val or vals->this
+           (progn
+             (if *debug* (format t "~&recalc x->dB~%"))
+             (min 0 (max -40 (round (rms->db (getr x)))))))
+         (lambda (val &optional src) ;;; this->referred val or vals
+           (progn
+             (if *debug* (format t "~&recalc dB->x: ~a~%" val))
+             (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val))))) src)))))
   nil)
 
 
