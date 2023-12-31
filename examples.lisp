@@ -26,8 +26,39 @@
 (defparameter x (ref 10))
 ; you can get and set it
 (getr x)
+
+(setr x 0.5)
+(setf x (ref 0.5))
+
+
+(setf *debug* t)
+
 (setr x 20)
 (getr x)
+
+(progn
+  (clear-bindings)
+  (setf x (ref 10))
+  (setf x-db
+      (computed (lambda () (min 0 (max -40 (rms->db (getr x)))))
+                (lambda (val) (setr x (max 0 (min 1 (db->rms val)))))))
+  nil)
+
+
+clog event from #<CLOG-ELEMENT {10075794E3}> -12.979400086720377d0 ;;; calculated event sets two knobs
+      watch update: #<CLOG-ELEMENT {10075794A3}> -> 0.2244036908603927d0 ;;; knob 1
+      watch update: #<CLOG-ELEMENT {1007579463}> -> 0.2244036908603927d0 ;;; knob 2
+1. !! watch update: #<CLOG-ELEMENT {10075794E3}> -> -12.979400086720377d0 ;;; and triggers its own update
+
+      watch update: #<CLOG-ELEMENT {1007579393}> -> -12.979400086720377d0 ;;; trigger update of same element in different window sets its two knobs.
+            watch update: #<CLOG-ELEMENT {1007579353}> -> 0.2244036908603927d0  ;;; knob 1 in window 2
+            watch update: #<CLOG-ELEMENT {1007579313}> -> 0.2244036908603927d0  ;;; knob 2 in window 2
+2.=1. !!    watch update: #<CLOG-ELEMENT {1007579393}> -> -12.979400086720377d0 ;;; triggering its own update
+3.    !!    watch update: #<CLOG-ELEMENT {10075794E3}> -> -12.979400086720377d0 ;;; ???
+
+(setf *debug* t)
+
+(ro-listeners x)
 
 ; we can define new derived ref objects
 (defparameter square (computed (lambda () (* (getr x) (getr x)))))

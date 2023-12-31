@@ -22,13 +22,15 @@ export function knob(props) {
   // these are our properties: value, min and max
     // useSignal() returns a singleton so we get the same signal
     // everytime.
-  const val = useSignal();
-  val.value = parseFloat(props.value);
-  const min = useSignal();
-  min.value = parseFloat(props.min || 0);
-  const max = useSignal();
-  max.value = parseFloat(props.max || 100);
-  // this is similar to watch. Again in a singleton version. This function gets called every time some (relevant) signal changes.
+    const val = useSignal();
+    val.value = parseFloat(props.value);
+    const min = useSignal();
+    min.value = parseFloat(props.min || 0);
+    const max = useSignal();
+    max.value = parseFloat(props.max || 100);
+    const unit = (props.unit === "") ? "" : " " + props.unit;
+
+    // this is similar to watch. Again in a singleton version. This function gets called every time some (relevant) signal changes.
   useSignalEffect(() => {
     let value = val.value;
     elem.current ? $(elem.current.parentNode).trigger("data", {value: value}) : ""
@@ -66,7 +68,6 @@ export function knob(props) {
     const mm = {
         _y: 0,
         _x: 0,
-        wert: val,
         startvalue: 0,
         get x() {
             this.startvalue = val.value;
@@ -77,13 +78,11 @@ export function knob(props) {
             let n = Math.round(((this._x+this._y)*range.value/sensitivity.value)/step.value)*step.value
             val.value = Math.max(min.value, Math.min(max.value,this.startvalue+n));
             return true;
-        }
-        ,
+        },
         get y() {
             this.startvalue = val.value;
             return 0;
         },
-        
         set y(value) {
             this._y = (-1 * value);
             let n = Math.round(((this._x+this._y)*range.value/sensitivity.value)/step.value)*step.value
@@ -106,7 +105,7 @@ export function knob(props) {
         <path d="${d2}" stroke="#222" fill="none" stroke-width="2" />
         <line x1="50%" y1="50%" x2=${xl} y2=${yl} id="pointer" />
       </svg>
-      <span class="value">${val} Hz</span>
+      <span class="value">${val}${unit}</span>
     </div>
   `
 }
