@@ -40,8 +40,8 @@
   (clear-bindings)
   (setf x (ref 10))
   (setf x-db
-      (computed (lambda () (min 0 (max -40 (rms->db (getr x)))))
-                (lambda (val) (setr x (max 0 (min 1 (db->rms val)))))))
+        (computed (lambda () (min 0 (max -40 (round (rms->db (getr x))))))
+                  (lambda (val) (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val)))))))))
   nil)
 
 

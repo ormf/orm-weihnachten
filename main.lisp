@@ -132,11 +132,12 @@ automagic update whenever any value in f changes."
       (let ((new (make-binding :ref refvar :attr attr :elist '() :map map :unwatch '())))
         (setf (b-unwatch new)
               (watch ;;; watch registers an on-update function
-               (lambda (src)
+               (lambda (&optional src)
                  (let ((val (getr refvar)))
                    (dolist (obj (b-elist new)) ;;; iterate through all bound html elems
-                     (if *debug* (format t "~&watch update: ~a -> ~a ~a~%" src obj val))
-                     (setf (attribute obj attr) val))))))
+                     (unless (equal obj src)
+                       (if *debug* (format t "~&watch update: ~a -> ~a ~a~%" src obj val))
+                       (setf (attribute obj attr) val)))))))
         (setf (gethash name *bindings*) new)))) ;;; (setf (gethash...) ) returns the value which got set (new in this case).
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -178,11 +179,11 @@ automagic update whenever any value in f changes."
     (set-on-data element ;;; react to changes in the browser page
                  (lambda (obj data)
 		   (declare (ignore obj))
-                   (if *debug* (format t "~&clog event from ~a ~a~%" element (or (if (gethash "close" data) "close")
+                   (if *debug* (format t "~&~%clog event from ~a ~a~%" element (or (if (gethash "close" data) "close")
                                                                                  (gethash attr data))))
                    (if (gethash "close" data)
                        (setf (b-elist binding) (remove element (b-elist binding))) ;;; cleanup: unregister elem.
-                       (setr var (gethash attr data)))))))
+                       (setr var (gethash attr data) element))))))
 
 (defparameter *test* nil)
 
@@ -218,11 +219,20 @@ automagic update whenever any value in f changes."
    (lambda () ;;; referred val or vals->this
      (progn
        (if *debug* (format t "~&recalc x->dB~%"))
-       (min 0 (max -40 (rms->db (getr x))))))
+       (min 0 (max -40 (round (rms->db (getr x)))))))
    (lambda (val) ;;; this->referred val or vals
      (progn
        (if *debug* (format t "~&recalc dB->x: ~a~%" val))
-       (setr x (max 0 (min 1 (db->rms val))))))))
+       (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val))))))))))
+
+(progn
+  (clear-bindings)
+  (setf x (ref 10))
+  (setf x-db
+        (computed (lambda () (min 0 (max -40 (round (rms->db (getr x))))))
+                  (lambda (val) (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val)))))))))
+  nil)
+
 
 ;;; set the path for the current working directory
 (uiop:chdir (asdf:system-relative-pathname :orm-weihnachten ""))
