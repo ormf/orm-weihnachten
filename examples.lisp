@@ -56,10 +56,11 @@ clog event from #<CLOG-ELEMENT {10075794E3}> -12.979400086720377d0 ;;; calculate
 2.=1. !!    watch update: #<CLOG-ELEMENT {1007579393}> -> -12.979400086720377d0 ;;; triggering its own update
 3.    !!    watch update: #<CLOG-ELEMENT {10075794E3}> -> -12.979400086720377d0 ;;; ???
 
+(setf *debug* nil)
 (setf *debug* t)
 
 (ro-listeners x)
-
+*debug*
 ; we can define new derived ref objects
 (defparameter square (computed (lambda () (* (getr x) (getr x)))))
 (getr square)

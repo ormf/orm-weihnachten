@@ -12,6 +12,7 @@
 
 (defparameter *ctrack* nil)
 (defparameter *cback* nil)
+(defparameter *ref-seen* nil)
 
 ;;; this is the core object
 (defstruct (ref-object (:conc-name ro-))
@@ -38,7 +39,8 @@
           (funcall setter val src)) ; update val if fun is not defined? Not sure/needed yet
          (setf (ro-value ref) val))
        (dolist (listener (ro-listeners ref))
-         (unless (member listener src)
+         (unless (member listener *ref-seen*)
+           (push listener *ref-seen*)
            (funcall listener old val src))))
   (ro-value ref))
 
@@ -84,7 +86,8 @@ automagic update whenever any value in f changes."
 ;;; we have to update listeners manually as we did not use setr to set the ro-value three lines above.
 		(unless (equal (ro-value co) old)
 		  (dolist (listener (ro-listeners co))
-		    (unless (member listener src)
+		    (unless (member listener *ref-seen*)
+                      (push listener *ref-seen*)
                       (funcall listener old (ro-value co) src)
                       (push listener src))))))
 	    co))
@@ -138,11 +141,20 @@ automagic update whenever any value in f changes."
                (lambda (&optional src)
                  (let ((val (getr refvar)))
                    (dolist (obj (b-elist new)) ;;; iterate through all bound html elems
-                     (unless (member obj src)
-                       (if *debug* (format t "~&watch update: ~a -> ~a ~a~%" src obj val))
+                     (unless (member obj *ref-seen*)
+                       (if *debug* (format t "~&~%watch update: ~a~%-> ~a ~a~%" (obj-print *ref-seen*) obj val))
+                       (push obj *ref-seen*)
                        (setf (attribute obj attr) val)
                        (push obj src)))))))
         (setf (gethash name *bindings*) new)))) ;;; (setf (gethash...) ) returns the value which got set (new in this case).
+
+(defun obj-print (seq)
+  (format nil "(~{~a~^ ~})"
+          (mapcar (lambda (x)
+                    (cond
+                      ((functionp x) (format nil "<function {~a}>" (sb-kernel:get-lisp-obj-address x)))
+                      (:else (format nil "~a" x))))
+                  seq)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                       clog part                                            ;;
@@ -183,11 +195,12 @@ automagic update whenever any value in f changes."
     (set-on-data element ;;; react to changes in the browser page
                  (lambda (obj data)
 		   (declare (ignore obj))
-                   (if *debug* (format t "~&~%clog event from ~a ~a~%" element (or (if (gethash "close" data) "close")
-                                                                                 (gethash attr data))))
-                   (if (gethash "close" data)
-                       (setf (b-elist binding) (remove element (b-elist binding))) ;;; cleanup: unregister elem.
-                       (setr var (gethash attr data) (list element)))))))
+                   (let ((*ref-seen* (list element)))
+                     (if *debug* (format t "~&~%clog event from ~a ~a~%" element (or (if (gethash "close" data) "close")
+                                                                                     (gethash attr data))))
+                     (if (gethash "close" data)
+                         (setf (b-elist binding) (remove element (b-elist binding))) ;;; cleanup: unregister elem.
+                         (setr var (gethash attr data) (list element))))))))
 
 (defparameter *test* nil)
 
@@ -202,8 +215,6 @@ automagic update whenever any value in f changes."
 
 (in-package :orm-weihnachten)
 
-;;; we need to define our variables
-(defparameter x (ref 5.))
 
 (defun rms->db (amp)
   (if (zerop amp)
@@ -213,8 +224,11 @@ automagic update whenever any value in f changes."
 (defun db->rms (db)
   (expt 10 (/ db 20)))
 
+;;; we need to define our variables
+
 (defparameter *debug* t)
 
+(defparameter x (ref 5.))
 (defparameter x-db
   (computed
    (lambda () ;;; referred val or vals->this
