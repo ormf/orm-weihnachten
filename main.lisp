@@ -242,7 +242,7 @@ automagic update whenever any value in f changes."
 
 (progn
   (clear-bindings)
-  (setf x (ref 10))
+  (setf x (ref 0.5))
   (setf x-db
         (computed
          (lambda () ;;; referred val or vals->this

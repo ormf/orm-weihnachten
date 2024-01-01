@@ -7,6 +7,19 @@ import register from 'preact-custom-element';
 // this is implemented by me
 import { onMouseDownHandler, onTouchStartHandler } from './utils.js';
 
+function getPrecision (num) {
+    let absNum = Math.abs(num);
+    let fraction = (100 * (absNum - Math.floor(absNum)));
+    if ((fraction == 0) || (fraction == 100)) return 0;
+    if (fraction%10 == 0) return 1;
+    return 2}
+
+function formatValue (value) {
+    return value.toFixed(getPrecision(value));
+}
+
+
+
 // this is an preact component. It is basically an advanced html element.
 // It gets the html properties as input and returns a DOM like object.
 // It gets reevaluated every time props change.
@@ -63,6 +76,7 @@ export function knob(props) {
     const d2 = useComputed(() => `M ${endpoint.x} ${endpoint.y} A 8 8 0 ${largeArcFlag2} 0 ${xb} ${yb}`)
     const d1 = useComputed(() => `M ${xa} ${ya} A 8 8 0 ${largeArcFlag1} 0 ${startpoint.x} ${startpoint.y}`)
 
+    const valString = useComputed(() => formatValue(val.value))
     // this is a weird construct I usually use it to avoid writing my mousemove eventhandlers over and over again.
     // it is basically a getter and a setter that gets called whenever the mouse moves (after it got registered see below).
     const mm = {
@@ -105,7 +119,7 @@ export function knob(props) {
         <path d="${d2}" stroke="#222" fill="none" stroke-width="2" />
         <line x1="50%" y1="50%" x2=${xl} y2=${yl} id="pointer" />
       </svg>
-      <span class="value">${val}${unit}</span>
+      <span class="value">${valString}${unit}</span>
     </div>
   `
 }
