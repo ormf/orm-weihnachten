@@ -141,6 +141,7 @@ automagic update whenever any value in f changes."
                (lambda (&optional src)
                  (let ((val (getr refvar)))
                    (if *debug* (format t "~&~%elist: ~a~%" (b-elist new)))
+                   (if *debug* (format t "~&~%seen: ~a~%" (obj-print *ref-seen*)))
                    (dolist (obj (b-elist new)) ;;; iterate through all bound html elems
                      (unless (member obj *ref-seen*)
                        (if *debug* (format t "~&~%watch update: ~a~%-> ~a ~a~%" (obj-print *ref-seen*) obj val))

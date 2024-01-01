@@ -18,8 +18,6 @@ function formatValue (value) {
     return value.toFixed(getPrecision(value));
 }
 
-
-
 // this is an preact component. It is basically an advanced html element.
 // It gets the html properties as input and returns a DOM like object.
 // It gets reevaluated every time props change.
