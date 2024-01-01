@@ -59,6 +59,23 @@ clog event from #<CLOG-ELEMENT {10075794E3}> -12.979400086720377d0 ;;; calculate
 (setf *debug* nil)
 (setf *debug* t)
 
+(progn
+  (clear-bindings)
+  (setf x (ref 0.5))
+  (setf x-db
+        (computed
+         (lambda () ;;; referred val or vals->this
+           (progn
+             (if *debug* (format t "~&recalc x->dB~%"))
+             (min 0 (max -40 (round (rms->db (getr x)))))))
+         (lambda (val &optional src) ;;; this->referred val or vals
+           (progn
+             (if *debug* (format t "~&recalc dB->x: ~a~%" val))
+             (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val))))) src)))))
+  nil)
+
+*bindings*
+
 (ro-listeners x)
 *debug*
 ; we can define new derived ref objects

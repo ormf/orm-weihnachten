@@ -140,6 +140,7 @@ automagic update whenever any value in f changes."
               (watch ;;; watch registers an on-update function
                (lambda (&optional src)
                  (let ((val (getr refvar)))
+                   (if *debug* (format t "~&~%elist: ~a~%" (b-elist new)))
                    (dolist (obj (b-elist new)) ;;; iterate through all bound html elems
                      (unless (member obj *ref-seen*)
                        (if *debug* (format t "~&~%watch update: ~a~%-> ~a ~a~%" (obj-print *ref-seen*) obj val))
@@ -264,7 +265,6 @@ automagic update whenever any value in f changes."
   "On-new-window handler."
   (setf (title (html-document body)) "Frohe Weihnachten")
   (let ((collection (create-collection body "1/2")))
-    (clear-bindings) ;;; start from scratch
     (create-o-knob collection (bind-var-to-attr "x-value" x "value") 0 1 0.01)
     (create-o-knob collection (bind-var-to-attr "x-value" x "value") 0 1 0.01)
     (create-o-knob collection (bind-var-to-attr "x-dB" x-db "value") -40 0 1 :unit "dB")
@@ -278,6 +278,7 @@ automagic update whenever any value in f changes."
 
 (defun start ()
   ;; Initialize the CLOG system with my boot file and my static files (I have no idea if this is the right way).
+  (clear-bindings) ;;; start from scratch
   (initialize #'on-new-window
               :static-root (merge-pathnames "www/" (asdf:system-source-directory :orm-weihnachten))
               :boot-file "/start.html")
