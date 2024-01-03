@@ -19,8 +19,8 @@
 (defun get-ref-id ()
   (format nil "ref~a" (next-id *ref-id*)))
 
-(defparameter *ctrack* nil)
-(defparameter *cback* nil)
+(defparameter *curr-ref* nil)
+(defparameter *curr-callback* nil)
 (defparameter *refs-seen* nil) ;;; keep track of already set refs to
                               ;;; avoid duplicate recalculation and
                               ;;; handle circular dependencies
@@ -75,9 +75,9 @@ recalcuations and problems with circular dependencies."
 ;;; to the listeners. This is very cool.
 
 (defun get-val (ref)
-  (when *ctrack*
-    (pushnew *cback* (ref-listeners ref))
-    (pushnew ref (ref-dependencies *ctrack*)))
+  (when *curr-ref*
+    (pushnew *curr-callback* (ref-listeners ref))
+    (pushnew ref (ref-dependencies *curr-ref*)))
   (ref-value ref))
 
 
@@ -94,32 +94,32 @@ recalcuations and problems with circular dependencies."
   "define/create a ref variable using f to calculate its value with
 automagic update whenever any value in f changes."
 ;;; let* is sequential to avoid nesting of multiple let
-  (let* ((co (make-ref nil :fun f :setter setter))
-	 (cb (lambda (&optional old new) (declare (ignorable old new)) (funcall (ref-update co)))))
-    (setf (ref-update co)
-          (lambda () ;;; this update function is closed over co and cb
-            (clear-dependencies co cb)
-	    (let ((old (ref-value co))) ;;; memorize last value
-	      (let ((*ctrack* co)
-		    (*cback* cb))
+  (let* ((new-ref (make-ref nil :fun f :setter setter))
+	 (update-callback (lambda (&optional old new) (declare (ignorable old new)) (funcall (ref-update new-ref)))))
+    (setf (ref-update new-ref)
+          (lambda () ;;; this update function is closed over new-ref and update-callback
+            (clear-dependencies new-ref update-callback)
+	    (let ((old (ref-value new-ref))) ;;; memorize last value
+	      (let ((*curr-ref* new-ref)
+		    (*curr-callback* update-callback))
 ;;; update dependencies and store new value without using setter.
 ;;;
 ;;; the funcall of f (the argument of computed) is closed over dynamic
-;;; bindings of co and cb (being a funcall of this update fn); if f
+;;; bindings of new-ref and update-callback (being a funcall of this update fn); if f
 ;;; executes any get-val functions, their ref gets pushed into the
-;;; ref-dependencies of co and this ref-update function gets pushed into
+;;; ref-dependencies of new-ref and this ref-update function gets pushed into
 ;;; the listeners of ref.
-		(setf (ref-value co) (funcall f)))
-	      (let ((*ctrack* nil)
-		    (*cback* nil))
+		(setf (ref-value new-ref) (funcall f)))
+	      (let ((*curr-ref* nil)
+		    (*curr-callback* nil))
 ;;; we have to update listeners manually as we did not use %set-val to set the ref-value three lines above.
-		(unless (equal (ref-value co) old)
-		  (dolist (listener (ref-listeners co))
+		(unless (equal (ref-value new-ref) old)
+		  (dolist (listener (ref-listeners new-ref))
 		    (unless (member listener *refs-seen*)
                       (push listener *refs-seen*)
-                      (funcall listener old (ref-value co)))))))
-	    co))
-    (funcall (ref-update co))))
+                      (funcall listener old (ref-value new-ref)))))))
+	    new-ref))
+    (funcall (ref-update new-ref))))
 
 ;;; watch is similar to make-computed. In contrast to make-computed it
 ;;; mainly implements behaviour. Like computed it uses a ref-object
@@ -133,33 +133,33 @@ automagic update whenever any value in f changes."
 
 
 (defun watch (f)
-  (let* ((co (make-ref nil :fun f))
-	 (cb (lambda (&optional old new)
+  (let* ((new-ref (make-ref nil :fun f))
+	 (update-callback (lambda (&optional old new)
 	       (declare (ignorable old new))
-	       (funcall (ref-update co)))))
-    (setf (ref-update co)
+	       (funcall (ref-update new-ref)))))
+    (setf (ref-update new-ref)
           (lambda ()
-	    (clear-dependencies co cb)
-	    (let ((*ctrack* co)
-		  (*cback* cb))
+	    (clear-dependencies new-ref update-callback)
+	    (let ((*curr-ref* new-ref)
+		  (*curr-callback* update-callback)) ;;; establish a dynamic context for the funcall below
 ;;; update dependencies and store new value
 ;;;
 ;;; Note: storing the new value doesn't seem to make sense as the
 ;;; object's value isn't supposed to be read anywhere. Watch is rather
 ;;; used for its side effects only.
-	      (setf (ref-value co) (funcall (ref-fun co))))
-	    co))
-    (funcall (ref-update co)) ;;; call the update function once to
+	      (setf (ref-value new-ref) (funcall (ref-fun new-ref))))
+	    new-ref))
+    (funcall (ref-update new-ref)) ;;; call the update function once to
                               ;;; register a call to it in all
                               ;;; ref-objects read in <f>.
 
     (lambda () ;;; unwatch
-      (clear-dependencies co cb)
-      (makunbound 'co))))
+      (clear-dependencies new-ref update-callback)
+      (makunbound 'new-ref))))
 
 ;;; just a helper function. I heard you like to copy variables. This is how to copy a ref:
 (defun copy (ref)
-  (computed (lambda () (get-val ref))
+  (make-computed (lambda () (get-val ref))
             (lambda (val) (%set-val ref val))))
 
 ;;; clog extension to integrate reactive with clog.
