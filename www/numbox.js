@@ -189,8 +189,8 @@ function numbox(elem) {
         numbox.externalValueChange = false;
         startValue = parseFloat(numbox.value);
         numbox.currValue = startValue;
-        console.log('value: ' + numbox.value);
-        console.log('floatvalue: ' + parseFloat(numbox.value));
+//        console.log('value: ' + numbox.value);
+//        console.log('floatvalue: ' + parseFloat(numbox.value));
         mouseStartX = event.clientX;
         mouseStartY = event.clientY;
         document.addEventListener('mousemove', mouseMoveListener);
@@ -299,7 +299,7 @@ function numbox(elem) {
     function mouseUpListener (event){
         if (dragging) {
             numbox.style.textAlign = 'center'; // restore alignment
-            console.log('value: ' + numbox.value);
+//            console.log('value: ' + numbox.value);
             numbox.value = formatNumBox(parseFloat(numbox.value), precision)
             document.removeEventListener('mousemove', mouseMoveListener);
             document.removeEventListener('mouseup', mouseUpListener);

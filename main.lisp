@@ -37,6 +37,9 @@
    (listeners :initarg :listeners :initform '() :accessor ref-listeners)
    (dependencies :initarg :dependencies :initform '() :accessor ref-dependencies)))
 
+(defmethod print-object ((obj ref-object) stream)
+  (format stream "#<ref ~a>" (ref-value obj)))
+
 ;;; constructor
 (defun make-ref (val &rest args)
   (apply #'make-instance 'ref-object :value val args))
@@ -165,7 +168,7 @@ automagic update whenever any value in f changes."
 ;;; clog extension to integrate reactive with clog.
 ;;;
 ;;; A binding establishes a relation between a ref object <refvar> and
-;;; an attribute name <attr> using #'bind-var-to-attr. This function
+;;; an attribute name <attr> using #'bind-ref-to-attr. This function
 ;;; creates the binding and calls the watch function, which creates a
 ;;; ref object containing the refvar in its update fn. Adding a clog
 ;;; element to the b-elist of the binding will result in an update of
@@ -173,7 +176,7 @@ automagic update whenever any value in f changes."
 ;;;
 ;;; Note: There is no handle to the update function created by watch,
 ;;; but the watch function returns an unwatch function which removes
-;;; the ref object created in #'bind-var-to-attr and all its
+;;; the ref object created in #'bind-ref-to-attr and all its
 ;;; dependencies. This function is stored in the unwatch slot of the
 ;;; binding to facilitate unbinding.
 
@@ -202,7 +205,7 @@ automagic update whenever any value in f changes."
 (defun make-binding (&rest args)
   (apply #'make-instance 'binding args))
 
-(defun bind-var-to-attr (refvar attr &optional (map (lambda (val) val)))
+(defun bind-ref-to-attr (refvar attr &optional (map (lambda (val) val)))
   "bind a ref to an attr of a html element. This will establish a watch
 function, which will automatically set the attr of all registered html
 elements on state change of the refvar. Registering html elements is
@@ -363,11 +366,11 @@ binding (normally done in the creation function of the html element)."
   "On-new-window handler."
   (setf (title (html-document body)) "Frohe Weihnachten")
   (let ((collection (create-collection body "1/2")))
-    (create-o-numbox collection (bind-var-to-attr x "value") 0 1 :precision 2)
-    (create-o-knob collection (bind-var-to-attr x "value") 0 1 0.01)
-    (create-o-knob collection (bind-var-to-attr x "value") 0 1 0.01)
-    (create-o-knob collection (bind-var-to-attr x-db "value") -40 0 1 :unit "dB" :precision 0)
-;;    (create-o-knob collection (bind-var-to-attr "sum-value" sum "value") -100 100 0.25)
+    (create-o-numbox collection (bind-ref-to-attr x "value") 0 1 :precision 2)
+    (create-o-knob collection (bind-ref-to-attr x "value") 0 1 0.01)
+    (create-o-knob collection (bind-ref-to-attr x "value") 0 1 0.01)
+    (create-o-knob collection (bind-ref-to-attr x-db "value") -40 0 1 :unit "dB" :precision 0)
+;;    (create-o-knob collection (bind-ref-to-attr "sum-value" sum "value") -100 100 0.25)
     ))
 
 ;;; I did not want to restart the server everytime I changed the new-window fun thats why I had this proxy.
