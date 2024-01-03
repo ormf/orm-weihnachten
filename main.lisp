@@ -254,16 +254,6 @@ binding (normally done in the creation function of the html element)."
           (funcall handler obj (parse-data-event data)))))
     :call-back-script *data-event-script*))
 
-(defmethod set-on-data2 ((obj clog-obj) handler)
-   (clog::set-event
-    obj "data"
-    (when handler
-      (lambda (data)
-        (format t "data: ~S~%" data)
-        (unless (string= data "undefined")
-          (funcall handler obj (parse-data-event data)))))
-    :call-back-script "+ JSON.stringify(data)"))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; creation functions for gui widgets
@@ -272,13 +262,13 @@ binding (normally done in the creation function of the html element)."
 
 ;;; custom html element also defined in js:
 
-(defun create-o-knob (parent binding min max step &key (unit ""))
+(defun create-o-knob (parent binding min max step &key (unit "") (precision 2))
   (let ((var (b-ref binding))
         (attr (b-attr binding))
         (element (create-child
                   parent
-                  (format nil "<o-knob min=\"~a\" max=\"~a\" step=\"~a\" value=\"~a\" unit=\"~a\"></o-knob>"
-                          min max step (get-val (b-ref binding)) unit)))) ;;; the get-val automagically registers the ref
+                  (format nil "<o-knob min=\"~a\" max=\"~a\" step=\"~a\" value=\"~a\" precision=\"~a\" unit=\"~a\"></o-knob>"
+                          min max step (get-val (b-ref binding)) precision unit)))) ;;; the get-val automagically registers the ref
     (push element (b-elist binding)) ;;; register the browser page's html elem for value updates.
     (set-on-data element ;;; react to changes in the browser page
                  (lambda (obj data)
@@ -291,15 +281,15 @@ binding (normally done in the creation function of the html element)."
                          (setf (b-elist binding) (remove element (b-elist binding)))
                          (%set-val var (gethash attr data))))))))
 
-(defun create-o-numbox (parent binding min max)
+(defun create-o-numbox (parent binding min max &key (precision 2))
   (let ((var (b-ref binding))
         (attr (b-attr binding))
         (element (create-child
                   parent
-                  (format nil "<input is=\"o-numbox\" min=\"~a\" max=\"~a\" value=\"~a\">"
-                          min max (get-val (b-ref binding)))))) ;;; the get-val automagically registers the ref
+                  (format nil "<input is=\"o-numbox\" min=\"~a\" max=\"~a\" value=\"~a\" precision=\"~a\">"
+                          min max (get-val (b-ref binding)) precision)))) ;;; the get-val automagically registers the ref
     (push element (b-elist binding)) ;;; register the browser page's html elem for value updates.
-    (set-on-data2 element ;;; react to changes in the browser page
+    (set-on-data element ;;; react to changes in the browser page
                  (lambda (obj data)
 		   (declare (ignore obj))
                    (let ((*refs-seen* (list element)))
@@ -373,10 +363,10 @@ binding (normally done in the creation function of the html element)."
   "On-new-window handler."
   (setf (title (html-document body)) "Frohe Weihnachten")
   (let ((collection (create-collection body "1/2")))
-    (create-o-numbox collection (bind-var-to-attr x "value") 0 1)
+    (create-o-numbox collection (bind-var-to-attr x "value") 0 1 :precision 2)
     (create-o-knob collection (bind-var-to-attr x "value") 0 1 0.01)
     (create-o-knob collection (bind-var-to-attr x "value") 0 1 0.01)
-    (create-o-knob collection (bind-var-to-attr x-db "value") -40 0 1 :unit "dB")
+    (create-o-knob collection (bind-var-to-attr x-db "value") -40 0 1 :unit "dB" :precision 0)
 ;;    (create-o-knob collection (bind-var-to-attr "sum-value" sum "value") -100 100 0.25)
     ))
 
