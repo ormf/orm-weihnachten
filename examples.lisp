@@ -30,8 +30,9 @@
 (setr x 0.5)
 (setf x (ref 0.5))
 
+(create-element)
 
-(setf *debug* t)
+(setf *debug* nil)
 
 (setr x 20)
 (getr x)
@@ -41,8 +42,13 @@
   (setf x (ref 10))
   (setf x-db
         (computed (lambda () (min 0 (max -40 (round (rms->db (getr x))))))
-                  (lambda (val) (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val)))))))))
+                  (lambda (val &optional src)  (setr x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val))))) src))))
   nil)
+
+(set-ref x 0.2)
+(set-ref x-db -16)
+
+
 
 
 clog event from #<CLOG-ELEMENT {10075794E3}> -12.979400086720377d0 ;;; calculated event sets two knobs
@@ -142,3 +148,7 @@ clog event from #<CLOG-ELEMENT {10075794E3}> -12.979400086720377d0 ;;; calculate
 (getr square)
 (getr plusthree)
 
+
+(setf *ref-seen* nil)
+(
+  (setf *debug* t))
