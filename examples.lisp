@@ -47,6 +47,8 @@
 
 (set-val x 0.2)
 (set-val x-db -16)
+(get-val x)
+(get-val x-db)
 
 
 
