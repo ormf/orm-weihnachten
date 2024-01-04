@@ -19,6 +19,7 @@
 (defun get-ref-id ()
   (format nil "ref~a" (next-id *ref-id*)))
 
+(defparameter *update-deps* nil)
 (defparameter *curr-ref* nil)
 (defparameter *curr-callback* nil)
 (defparameter *refs-seen* nil) ;;; keep track of already set refs to
@@ -83,13 +84,19 @@ recalcuations and problems with circular dependencies."
     (pushnew ref (ref-dependencies *curr-ref*)))
   (ref-value ref))
 
-
 (defun clear-dependencies (co cb)
   "clear all dependencies of a computed ref object."
   (dolist (dep (ref-dependencies co))
     (setf (ref-listeners dep) (remove cb (ref-listeners dep))))
   (setf (ref-dependencies co) '()))
 
+(defmacro with-updating-deps (&body body)
+  `(let ((*update-deps* t))
+     ,@body))
+
+(defmacro on-deps-update (&rest body)
+  `(when *update-deps* ,@body))
+ 
 ;;; this is another constructor but instead of a value we can add a function.
 ;;; Together with the getter it tracks which object was accessed and adds it to the dependencies.
 
@@ -99,30 +106,33 @@ automagic update whenever any value in f changes."
 ;;; let* is sequential to avoid nesting of multiple let
   (let* ((new-ref (make-ref nil :fun f :setter setter))
 	 (update-callback (lambda (&optional old new) (declare (ignorable old new)) (funcall (ref-update new-ref)))))
-    (setf (ref-update new-ref)
-          (lambda () ;;; this update function is closed over new-ref and update-callback
-            (clear-dependencies new-ref update-callback)
-	    (let ((old (ref-value new-ref))) ;;; memorize last value
-	      (let ((*curr-ref* new-ref)
-		    (*curr-callback* update-callback))
+    (with-updating-deps
+      (setf (ref-update new-ref)
+            (lambda () ;;; this update function is closed over new-ref and update-callback
+              (on-deps-update (clear-dependencies new-ref update-callback))
+              (let ((old (ref-value new-ref))) ;;; memorize last value
+                (let ((*curr-ref* (on-deps-update new-ref))
+                      (*curr-callback* update-callback))
 ;;; update dependencies and store new value without using setter.
 ;;;
 ;;; the funcall of f (the argument of computed) is closed over dynamic
-;;; bindings of new-ref and update-callback (being a funcall of this update fn); if f
-;;; executes any get-val functions, their ref gets pushed into the
-;;; ref-dependencies of new-ref and this ref-update function gets pushed into
-;;; the listeners of ref.
-		(setf (ref-value new-ref) (funcall f)))
-	      (let ((*curr-ref* nil)
-		    (*curr-callback* nil))
+;;; bindings of new-ref and update-callback (being a funcall of this
+;;; update fn); if f executes any get-val functions, their ref gets
+;;; pushed into the ref-dependencies of new-ref and the
+;;; update-callback gets pushed into the listeners of the get-val
+;;; ref. This update-callback will therefore get called whenver the
+;;; ref is changed using set-ref.
+                  (setf (ref-value new-ref) (funcall f)))
+                (let ((*curr-ref* nil)
+                      (*curr-callback* nil))
 ;;; we have to update listeners manually as we did not use %set-val to set the ref-value three lines above.
-		(unless (equal (ref-value new-ref) old)
-		  (dolist (listener (ref-listeners new-ref))
-		    (unless (member listener *refs-seen*)
-                      (push listener *refs-seen*)
-                      (funcall listener old (ref-value new-ref)))))))
-	    new-ref))
-    (funcall (ref-update new-ref))))
+                  (unless (equal (ref-value new-ref) old)
+                    (dolist (listener (ref-listeners new-ref))
+                      (unless (member listener *refs-seen*)
+                        (push listener *refs-seen*)
+                        (funcall listener old (ref-value new-ref)))))))
+              new-ref)))
+    (funcall (ref-update new-ref))
 
 ;;; watch is similar to make-computed. In contrast to make-computed it
 ;;; mainly implements behaviour. Like computed it uses a ref-object
@@ -135,30 +145,31 @@ automagic update whenever any value in f changes."
 ;;; dependencies.
 
 
-(defun watch (f)
-  (let* ((new-ref (make-ref nil :fun f))
-	 (update-callback (lambda (&optional old new)
-	       (declare (ignorable old new))
-	       (funcall (ref-update new-ref)))))
-    (setf (ref-update new-ref)
-          (lambda ()
-	    (clear-dependencies new-ref update-callback)
-	    (let ((*curr-ref* new-ref)
-		  (*curr-callback* update-callback)) ;;; establish a dynamic context for the funcall below
+    (defun watch (f)
+      (let* ((new-ref (make-ref nil :fun f))
+             (update-callback (lambda (&optional old new)
+                                (declare (ignorable old new))
+                                (funcall (ref-update new-ref)))))
+        (with-updating-deps
+          (setf (ref-update new-ref)
+                (lambda ()
+                  (on-deps-update (clear-dependencies new-ref update-callback))
+                  (let ((*curr-ref* (on-deps-update new-ref))
+                        (*curr-callback* update-callback)) ;;; establish a dynamic context for the funcall below
 ;;; update dependencies and store new value
 ;;;
 ;;; Note: storing the new value doesn't seem to make sense as the
 ;;; object's value isn't supposed to be read anywhere. Watch is rather
 ;;; used for its side effects only.
-	      (setf (ref-value new-ref) (funcall (ref-fun new-ref))))
-	    new-ref))
-    (funcall (ref-update new-ref)) ;;; call the update function once to
+                    (setf (ref-value new-ref) (funcall (ref-fun new-ref))))
+                  new-ref)))
+        (funcall (ref-update new-ref)) ;;; call the update function once to
                               ;;; register a call to it in all
                               ;;; ref-objects read in <f>.
 
-    (lambda () ;;; unwatch
-      (clear-dependencies new-ref update-callback)
-      (makunbound 'new-ref))))
+        (lambda () ;;; unwatch
+          (clear-dependencies new-ref update-callback)
+          (makunbound 'new-ref))))))
 
 ;;; just a helper function. I heard you like to copy variables. This is how to copy a ref:
 (defun copy (ref)

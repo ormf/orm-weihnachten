@@ -39,14 +39,14 @@
 
 (progn
   (clear-bindings)
-  (setf x (make-ref 10))
+  (setf x (make-ref 0.4))
   (setf x-db
-        (make-computed (lambda () (min 0 (max -40 (round (rms->db (get-val x))))))
-                  (lambda (val)  (set-val x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val)))))))))
+        (make-computed (lambda () (float (min 0 (max -40 (round (rms->db (get-val x))))) 1.0))
+                       (lambda (val)  (set-val x (float (max 0 (min 1 (if (<= val -40) 0 (db->rms val)))) 1.0)))))
   nil)
 
-(set-ref x 0.2)
-(set-ref x-db -16)
+(set-val x 0.2)
+(set-val x-db -16)
 
 
 
