@@ -42,16 +42,94 @@
   (setf x (make-ref 0.4))
   (setf x-db
         (make-computed (lambda () (float (min 0 (max -40 (round (rms->db (get-val x))))) 1.0))
-                       (lambda (val)  (set-val x (float (max 0 (min 1 (if (<= val -40) 0 (db->rms val)))) 1.0)))))
+                       (lambda (val) (set-val x (float (max 0 (min 1 (if (<= val -40) 0 (db->rms val)))) 1.0)))))
   nil)
 
-(set-val x 0.2)
+(set-val x 0.3)
 (set-val x-db -16)
 (get-val x)
 (get-val x-db)
 
+*test* ; => #<ref 0.1>
+
+(defparameter *test* (make-ref 0.1))
+(defparameter *test2* nil)
+(defparameter *test3* nil)
+
+(setf *test2* (make-computed (lambda () (get-val *test*))
+                             (lambda (val) (set-val x val))))
+
+(setf *test3* (watch (lambda () (set-val x (get-val *test*)))))
+
+(funcall *test3*)
+
+(get-val *test*)
+(get-val *test2*)
+(set-val *test* 0.1)
+(set-val *test* 0.7)
+
+(format nil "~@[~A~]" 'a)
+
+(clog:jquery-execute)
+(funcall *test3*)
+
+(set-val *test* 0.5)
+
+(defun wrap-fn (forms)
+  (loop
+    for form in forms
+    collect `(watch (lambda () ,form))))
+
+(wrap-fn
+ '((get-val *test*)))
+
+(defmacro digest-routes (forms)
+   `(list ,@(wrap-fn forms)))
+
+(defparameter *test3* nil)
 
 
+(defun clear-routes (routes)
+  (map '() #'funcall routes))
+
+(setf *test3* (digest-routes ((set-val x (get-val *test*)))))
+(setf *test3* (digest-routes ((set-val x (test)))))
+
+
+(setf *test3* (digest-routes ((set-val x (test)))))
+
+(setf *test3* (list
+               (define-route x (lambda () (test)))))
+
+(clear-routes *test3*)
+
+(bias-pos 1) ;;; -> (get-val (bias-pos (aref *orgel-state* 0)))
+
+(defun test ()
+  (get-val *test*))
+
+(set-val *test* 0.1)
+(set-val *test* 0.4)
+(set-val *test* 0.4)
+
+(defparameter *target-hash* (make-hash-table))
+
+(make-instance 'ref-object)
+
+(defmacro testmacro (form)
+  `,form)
+
+(testmacro '(:x 1 (+ 2 3)))
+
+Target:
+
+nil -> (lambda () expr)
+:bias-cos -> (lambda () (setr (bias-cos 0) expr))
+:level (lambda () (dotimes (i 16)
+               (funcall expr (/ i 15))))
+:global (lambda () (dotimes (i 16)
+               (funcall expr (/ i 15)))) 
+(setf (ccin 3))
 
 clog event from #<CLOG-ELEMENT {10075794E3}> -12.979400086720377d0 ;;; calculated event sets two knobs
       watch update: #<CLOG-ELEMENT {10075794A3}> -> 0.2244036908603927d0 ;;; knob 1

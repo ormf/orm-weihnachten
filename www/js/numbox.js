@@ -43,7 +43,8 @@ class NumBoxElement extends HTMLInputElement {
     }
 
   disconnectedCallback() {
-    console.log("Custom element removed from page.");
+      $(numbox).trigger("data", {close: true});
+      console.log("Custom element removed from page.");
   }
 
   adoptedCallback() {
@@ -54,12 +55,6 @@ class NumBoxElement extends HTMLInputElement {
     console.log(`Attribute ${name} has changed.`);
   }
 }
-
-
-var data = function () {
-    console.log('data!');
-    }
-
 
 customElements.define("o-numbox", NumBoxElement, { extends: "input" } );
 
@@ -246,7 +241,7 @@ function numbox(elem) {
 //                let event = new CustomEvent ('data', { detail: { value: lastValue } });
 //                console.log(event);
 //                numbox.dispatchEvent(event);
-                $(numbox).trigger("data", { "value": lastValue });
+                $(numbox).trigger("data", { value: lastValue });
                 }
         }
     }
@@ -262,7 +257,7 @@ function numbox(elem) {
                 document.addEventListener('mousedown', mouseDownListener);
                 numbox.style.textAlign = 'center'; // restore alignment
                 numbox.value = formatNumBox(parseFloat(numbox.value), numbox.precision)
-                $(numbox).trigger("data", { "value": parseFloat(numbox.value) });
+                $(numbox).trigger("data", { value: parseFloat(numbox.value) });
             }
             return true;
         }

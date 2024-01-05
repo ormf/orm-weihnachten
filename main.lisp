@@ -20,6 +20,7 @@
   (format nil "ref~a" (next-id *ref-id*)))
 
 (defparameter *update-deps* nil)
+;;; (defparameter *update-deps* t)
 (defparameter *curr-ref* nil)
 (defparameter *curr-callback* nil)
 (defparameter *refs-seen* nil) ;;; keep track of already set refs to
@@ -94,10 +95,12 @@ to get-val (see #'make-computed and #'watch)."
   (setf (ref-dependencies co) '()))
 
 (defmacro with-updating-deps (&body body)
+  "evaluate body in the dynamic context of *update-defs* set to T"
   `(let ((*update-deps* t))
      ,@body))
 
 (defmacro on-deps-update (&rest body)
+  "return body if *update-deps* is non-nil, otherwise return nil."
   `(when *update-deps* ,@body))
  
 ;;; this is another constructor but instead of a value we can add a function.
@@ -141,7 +144,8 @@ automagic update whenever any value in f changes."
 ;;; mainly implements behaviour. Like computed it uses a ref-object
 ;;; internally but its main purpose is to trigger behaviour by calling
 ;;; its supplied f, whenever reference values accessed within that
-;;; function change.
+;;; function change. Watch returns its cleanup function, removing the
+;;; ref cell and its listeners.
 ;;;
 ;;; Note: This function doesn't return the new ref-object, but an
 ;;; unwatch function to remove the ref-object and all its
@@ -157,27 +161,39 @@ automagic update whenever any value in f changes."
       (setf (ref-update new-ref)
             (lambda ()
               (on-deps-update (clear-dependencies new-ref update-callback))
-              (let ((*curr-ref* (on-deps-update new-ref))
-                    (*curr-callback* update-callback)) ;;; establish a dynamic context for the funcall below
-;;; update dependencies and store new value
-;;;
-;;; Note: storing the new value doesn't seem to make sense as the
-;;; object's value isn't supposed to be read anywhere. Watch is rather
-;;; used for its side effects only.
+              ;; the let below establishes a dynamic context for the
+              ;; funcall in its body. If *curr-ref* is non-nil, any
+              ;; #'get-val access to a ref in ref-fun will push the
+              ;; update-callback to the listeners of the ref and the
+              ;; ref to the dependencies of the new-ref. In the first
+              ;; call to watch, *update-deps* is set to T to ensure
+              ;; all dependencies/listeners get registered. Subsequent
+              ;; calls to ref-update depend on the value of
+              ;; *update-deps* in the dynamic context in which they
+              ;; are called to avoid unnecessary duplicate registering
+              ;; of the dependencies/listeners on each update
+              ;; triggered by value changes in the observed refs.
+              (let ((*curr-ref* (on-deps-update new-ref)) 
+                    (*curr-callback* update-callback))
+                ;; Note: storing the new value doesn't seem to make sense as the
+                ;; object's value isn't supposed to be read anywhere. Watch is rather
+                ;; used for its side effects only.
                 (setf (ref-value new-ref) (funcall (ref-fun new-ref))))
               new-ref))
-      (funcall (ref-update new-ref))) ;;; call the update function once to
-                              ;;; register a call to it in all
-                              ;;; ref-objects read in <f>.
-
-    (lambda () ;;; unwatch
+      ;; call the update function once to register a call to it in all
+      ;; ref-objects read in <f>.
+      (funcall (ref-update new-ref)))
+    (lambda () ;;; return the unwatch/cleanup fn
       (clear-dependencies new-ref update-callback)
       (makunbound 'new-ref))))
+
+(defun remove-watch (ref)
+  (funcall (ref-cleanup ref)))
 
 ;;; just a helper function. I heard you like to copy variables. This is how to copy a ref:
 (defun copy (ref)
   (make-computed (lambda () (get-val ref))
-            (lambda (val) (%set-val ref val))))
+                 (lambda (val) (%set-val ref val))))
 
 ;;; clog extension to integrate reactive with clog.
 ;;;
@@ -209,9 +225,9 @@ automagic update whenever any value in f changes."
 (defclass binding ()
   ((ref :initarg :ref :accessor b-ref)
    (attr :initarg :attr :accessor b-attr)
-   (elist :initarg :elist :accessor b-elist)
+   (elist :initarg :elist :initform '() :accessor b-elist)
    (map :initarg :map :accessor b-map)
-   (unwatch :initarg :unwatch :accessor b-unwatch)))
+   (unwatch :initarg :unwatch :initform '() :accessor b-unwatch)))
 
 (defun binding-name (refvar attr)
   (concatenate 'string (ref-id refvar) "-" attr))
@@ -227,7 +243,7 @@ done by pushing the html element to the b-elist slot of the
 binding (normally done in the creation function of the html element)."
   (let ((name (binding-name refvar attr)))
     (or (gethash name *bindings*) ;;; or returns the first non-nil argument and skips evaluating the rest of its args.
-        (let ((new (make-binding :ref refvar :attr attr :elist '() :map map :unwatch '())))
+        (let ((new (make-binding :ref refvar :attr attr :map map)))
           (setf (b-unwatch new)
                 (watch ;;; watch registers an on-update function
                  (lambda ()
@@ -277,6 +293,7 @@ binding (normally done in the creation function of the html element)."
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 ;;; custom html element also defined in js:
 
 (defun create-o-knob (parent binding min max step &key (unit "") (precision 2))
@@ -294,9 +311,10 @@ binding (normally done in the creation function of the html element)."
                      (if *debug* (format t "~&~%clog event from ~a: ~a~%" element
                                          (or (if (gethash "close" data) "close")
                                              (gethash attr data))))
-                     (if (gethash "close" data) ;;; cleanup: unregister elem.
-                         (setf (b-elist binding) (remove element (b-elist binding)))
-                         (%set-val var (gethash attr data))))))))
+                     (if (gethash "close" data)
+                         (setf (b-elist binding) (remove element (b-elist binding))) ;;; cleanup: unregister elem.
+                         (%set-val var (gethash attr data)) ;; otherwise set value.
+                         ))))))
 
 (defun create-o-numbox (parent binding min max &key (precision 2))
   (let ((var (b-ref binding))
@@ -318,6 +336,54 @@ binding (normally done in the creation function of the html element)."
                            (format t "closing numbox~%")
                            (setf (b-elist binding) (remove element (b-elist binding)))) ;;; cleanup: unregister elem.
                          (%set-val var (gethash attr data))))))))
+
+(defmacro option-main (option)
+  `(if (listp ,option)
+       (first ,option)
+       ,option))
+
+(defmacro option-second (option)
+  `(if (listp ,option)
+       (or (second ,option) (first ,option))
+       ,option))
+
+(defun opt-format-attr (attr val)
+  (when val (format nil "~a=\"~a\"" attr val)))
+
+(defun create-o-bang (parent binding &key label (background '("transparent" "orange")) color flash-time)
+  (let ((var (b-ref binding))
+        (attr (b-attr binding))
+        (element (create-child
+                  parent
+                  (format nil "<o-bang ~{~@[~a ~]~}>~@[~a~]</o-bang>"
+                          (list
+                           (opt-format-attr "label-off" (option-main label))
+                           (opt-format-attr "label-on" (option-second label))
+                           (opt-format-attr "background-off" (option-main background))
+                           (opt-format-attr "background-on" (option-second background))
+                           (opt-format-attr "color-off" (option-main color))
+                           (opt-format-attr "color-on" (option-second color))
+                           (opt-format-attr "flash-time" flash-time))
+                          (or (option-main label) "")))))
+    (declare (ignore var))
+    (push element (b-elist binding)) ;;; register the browser page's html elem for value updates.
+    (set-on-data element ;;; react to changes in the browser page
+                 (lambda (obj data)
+		   (declare (ignore obj))
+                   (let ((*refs-seen* (list element)))
+                     (if *debug* (format t "~&~%clog event from ~a: ~a~%" element
+                                         (or (if (gethash "close" data) "close")
+                                             (gethash attr data))))
+                     (cond ((gethash "close" data)
+                            (progn
+                              (format t "closing numbox~%")
+                              (setf (b-elist binding) (remove element (b-elist binding))))) ;;; cleanup: unregister elem.
+                           ((gethash "bang" data)
+                            (format t "bang received"))))))))
+
+;; array as attribute: <div id="demo" data-stuff='["some", "string", "here"]'></div>
+
+;; <div id="storageElement" data-storeIt="stuff,more stuff"></div> and use string.split.
 
 ;;; this is just how I would structure such a dynamic website. With a 12 column layout with collection of input elements
 
@@ -384,6 +450,7 @@ binding (normally done in the creation function of the html element)."
     (create-o-knob collection (bind-ref-to-attr x "value") 0 1 0.01)
     (create-o-knob collection (bind-ref-to-attr x "value") 0 1 0.01)
     (create-o-knob collection (bind-ref-to-attr x-db "value") -40 0 1 :unit "dB" :precision 0)
+    (create-o-bang collection (bind-ref-to-attr x-db "value"))
 ;;    (create-o-knob collection (bind-ref-to-attr "sum-value" sum "value") -100 100 0.25)
     ))
 
