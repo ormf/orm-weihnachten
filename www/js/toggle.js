@@ -1,3 +1,35 @@
+// toggle and radiobox
+
+class ToggleElement extends HTMLElement {
+//  static observedAttributes = ['color', 'size'];
+
+    constructor() {
+        // Always call super first in constructor
+        super();
+//        console.log('o-toggle constructed: ' + this );
+    }
+
+    connectedCallback() {
+//        console.log('o-toggle added to page: ' + this );
+        toggle(this);
+    }
+
+    disconnectedCallback() {
+        $(myToggle).trigger('data', { close: true });
+//        console.log('o-toggle removed from page.');
+    }
+
+    adoptedCallback() {
+//        console.log('o-toggle moved to new page.');
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        console.log(`Attribute ${name} has changed.`);
+    }
+}
+
+customElements.define('o-toggle', ToggleElement );
+
 function toggle (elem, config) {
 
     var myToggle;
@@ -7,21 +39,22 @@ function toggle (elem, config) {
     else
         myToggle = elem;
     
-    const valChangeEvent = new Event("valuechange");
-    var colorOff         = config.colorOff || "black";
-    var backgroundOff    = config.backgroundOff || "white";
-    var labelOff         = config.labelOff || '';
-    var valueOff         = config.valueOff || '0';
-    var colorOn          = config.colorOn || "black";
-    var backgroundOn     = config.backgroundOn || 'rgba(120,120,120,1.0)';
-    var labelOn          = config.labelOn || '';
-    var valueOn          = config.valueOn || '1';
+    var colorOff         = myToggle.getAttribute('color-off') || 'black';
+    var colorOn          = myToggle.getAttribute('color-on') || 'black';
+    var backgroundOff    = myToggle.getAttribute('background-off') || 'white';
+    var backgroundOn     = myToggle.getAttribute('background-on') || 'black';
+    var labelOff         = myToggle.getAttribute('label-off') || '';
+    var labelOn          = myToggle.getAttribute('label-on') || '';
+    
 
-    myToggle.externalValueChange = false;
+    var valueOff         = myToggle.getAttribute('value-off') || '0';
+    var valueOn          = myToggle.getAttribute('value-on') || '1';
 
+    // myToggle.externalValueChange = false;
+    // 
     // override setAttribute
     const mySetAttribute = myToggle.setAttribute;
-
+    
     myToggle.colorOff = colorOff;
     myToggle.backgroundOff = backgroundOff;
     myToggle.labelOff = labelOff;
@@ -31,23 +64,25 @@ function toggle (elem, config) {
     myToggle.labelOn = labelOn;
     myToggle.valueOn = valueOn;
     
+
     myToggle.setAttribute = function (key, value) {
-        if (key == 'data-val') {
+        if (key == 'value') {
             if (myToggle.externalValueChange == true) {
-                value = parseFloat(value).toFixed(0);
-                if (value != valueOff) value = valueOn;
+                value = parseFloat(value);
+                // if (value != valueOff) value = valueOn;
             }
             mySetAttribute.call(myToggle, key, value);
             drawToggle(value);
             if (myToggle.externalValueChange == false) {
-                myToggle.dispatchEvent(valChangeEvent);
+                $(myToggle).trigger('data', { value: value });
                 myToggle.externalValueChange = true;
             }
         }
     }
     
     var  drawToggle = function (val) {
-        if (val == valueOn) {
+//        console.log('val: ' + val);
+        if (val != valueOff) {
             myToggle.textContent = labelOn;
             myToggle.style.color = colorOn;
             myToggle.style.background = backgroundOn;
@@ -61,8 +96,8 @@ function toggle (elem, config) {
 
     function mouseDownListener (event) {
         myToggle.externalValueChange = false;
-        let val = (myToggle.getAttribute('data-val') == myToggle.valueOff)? valueOn : valueOff;
-        myToggle.setAttribute('data-val', val);
+        let val = (myToggle.getAttribute('value') == myToggle.valueOff)? valueOn : valueOff;
+        myToggle.setAttribute('value', val);
     }
 
     myToggle.removeMouseDownListener = () => {
@@ -89,10 +124,10 @@ function toggle (elem, config) {
         //     event.preventDefault();
         //     event.stopPropagation();
         // }, true);
-        let val = parseFloat(myToggle.getAttribute('data-val')).toFixed(0);
+        let val = parseFloat(myToggle.getAttribute('value')).toFixed(0);
         if ((val != valueOff) && (val != valueOn)) {
             val = valueOff;
-            mySetAttribute.call(myToggle, 'data-val', val);
+            mySetAttribute.call(myToggle, 'value', val);
         }
         drawToggle(val);
         myToggle.externalValueChange = true;
@@ -101,17 +136,92 @@ function toggle (elem, config) {
     init();
 }
 
+// RADIO Button
+
+class RadioElement extends HTMLElement {
+//  static observedAttributes = ['color', 'size'];
+
+    constructor() {
+        // Always call super first in constructor
+        super();
+//        console.log('o-radio constructed: ' + this );
+    }
+
+    connectedCallback() {
+//        console.log('o-radio added to page: ' + this );
+        radio(this);
+    }
+
+    disconnectedCallback() {
+        $(myRadio).trigger('data', { close: true });
+        console.log('o-radio removed from page.');
+    }
+
+    adoptedCallback() {
+        console.log('o-radio moved to new page.');
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        console.log(`Attribute ${name} has changed.`);
+    }
+}
+
+customElements.define('o-radio', RadioElement );
+
 function radio (elem, config) {
 
-    var myRadio = elem.get(0);
+    var myRadio;
 
-    var colorOff      = config.colorOff                  || ['black'];
-    var backgroundOff = config.backgroundOff             || ['white'];
-    var labelOff      = config.labelOff                  || ['Off'];
-    var colorOn       = config.colorOn                   || ['black'];
-    var backgroundOn  = config.backgroundOn              || ['rgba(120,120,120,1.0)'];
-    var labelOn       = config.labelOn                   || ['On'];
-    var direction     = config.direction                 || 'right';
+    if (elem.nodeType == undefined)
+        myRadio = elem.get(0);
+    else
+        myRadio = elem;
+
+    var colorOff;
+    if (myRadio.getAttribute('color-off'))
+        colorOff = myRadio.getAttribute('color-off').split(',');
+    else colorOff = ['black'];
+
+    var colorOn;
+    if (myRadio.getAttribute('color-on'))
+        colorOn = myRadio.getAttribute('color-on').split(',');
+    else colorOn = ['black'];
+
+    var backgroundOff;
+    if (myRadio.getAttribute('background-off')) {
+        backgroundOff = myRadio.getAttribute('background-off').split(',');
+    }
+    else backgroundOff = ['white'];
+
+    var backgroundOn;
+    if (myRadio.getAttribute('background-on'))
+        backgroundOn = myRadio.getAttribute('background-on').split(',');
+    else backgroundOn = ['black'];
+
+    var labelOff;
+    if (myRadio.getAttribute('label-off'))
+        labelOff = myRadio.getAttribute('label-off').split(',');
+    else labelOff = [''];
+
+    var labelOn;
+    if (myRadio.getAttribute('label-on'))
+        labelOn = myRadio.getAttribute('label-on').split(',');
+    else labelOn = [''];
+
+
+
+//    console.log('colorOff: ' + colorOff);
+//    console.log('colorOn: ' + colorOn);
+//    console.log('backgroundOff: ' + backgroundOff);
+//    console.log(backgroundOff);
+//    console.log('backgroundOn: ' + backgroundOn);
+//    console.log('labelOff: ' + labelOff);
+//    console.log('labelOn: ' + labelOn);
+
+
+
+    var direction     = myRadio.getAttribute('direction') || 'right';
+
     var numButtons           = myRadio.getAttribute('data-num') || ['1.0'];
 
     var lenColOn = colorOn.length;
@@ -120,10 +230,10 @@ function radio (elem, config) {
     var lenBgOff = backgroundOff.length;
     var lenLbOn = labelOn.length;
     var lenLbOff = labelOff.length;
-    
+
     const pxRegex = /([0-9]+).*/
-    const valChangeEvent = new Event("valuechange");
-    var innerBorder, mouseDownListener, oldValue;
+    const valChangeEvent = new Event('valuechange');
+    var sliderType, moved, idx, innerBorder, mouseDownListener, oldValue;
 
     var getFraction;
 
@@ -143,7 +253,7 @@ function radio (elem, config) {
     function makeToggle () {
         let div = document.createElement('div');
         div.setAttribute('class', 'mvradio');
-        div.setAttribute('style', 'border: 1px solid black;flex: 1 0 auto;position: relative;min-width 0; min-height: 0');
+        div.setAttribute('style', 'border: 1px solid black;flex: 1 1 auto;position: relative;min-width 0; min-height: 0');
         div.style.width = '';
         div.style.height = '';
         div.style.flex = '1 0 auto';
@@ -162,20 +272,21 @@ function radio (elem, config) {
             parent.appendChild(currToggle);
             idx = ((direction == 'up') || (direction == 'left'))? (num - i - 1) : i;
             currToggle.setAttribute('data-idx', idx);
+            currToggle.setAttribute('color-off', colorOff[idx%lenColOff]);
+            currToggle.setAttribute('background-off', backgroundOff[idx%lenBgOff]);
+            currToggle.setAttribute('label-off', labelOff[idx%lenLbOff]);
+            currToggle.setAttribute('color-on', colorOn[idx%lenColOn]);
+            currToggle.setAttribute('background-on', backgroundOn[idx%lenBgOn]);
+            currToggle.setAttribute('label-on', labelOn[idx%lenLbOn]);
             if (i > 0) currToggle.style.setProperty(innerBorder, 'none');
             toggles[idx] = currToggle;
-            toggle(currToggle, { 'colorOff': colorOff[idx%lenColOff],
-                                 'backgroundOff': backgroundOff[idx%lenBgOff],
-                                 'labelOff': labelOff[idx%lenLbOff],
-                                 'colorOn': colorOn[idx%lenColOn],
-                                 'backgroundOn': backgroundOn[idx%lenBgOn],
-                                 'labelOn': labelOn[idx%lenLbOn] });
+            toggle(currToggle, {});
             if (idx == oldValue) {
-                currToggle.setAttribute('data-val', 1);
+                currToggle.setAttribute('value', 1);
                 currToggle.draw(1);
             }
             else {
-                currToggle.setAttribute('data-val', 0);
+                currToggle.setAttribute('value', 0);
                 currToggle.draw(0);
             }
             currToggle.removeMouseDownListener();
@@ -184,7 +295,9 @@ function radio (elem, config) {
     }
 
     function getYFraction (event) {
-        let localYFrac = (myRadio.height + myRadio.offsetTop - event.clientY) / myRadio.height;
+        let rect = myRadio.getBoundingClientRect();
+        let localYFrac = (rect.height + rect.top - event.clientY) / rect.height;
+        console.log(rect.height + ', ' + rect.top +  ', ' + event.clientY + ', ' + localYFrac)
         return clamp(localYFrac, 0, 1);
 
     }
@@ -194,7 +307,8 @@ function radio (elem, config) {
     }
 
     function getXFraction (event) {
-        let localXFrac = ((event.clientX - myRadio.offsetLeft)) / myRadio.width;
+        let rect = myRadio.getBoundingClientRect();
+        let localXFrac = (event.clientX - rect.left) / rect.width;
         return clamp(localXFrac, 0, 1);
     }
 
@@ -203,17 +317,19 @@ function radio (elem, config) {
     }
     
     function mouseDownListener (event) {
+        console.log('mouseDown');
         moved = false;
         let Fraction = getFraction(event);
+        console.log(Fraction);
         idx = clamp(Math.floor(Fraction*numButtons), 0, numButtons - 1);
         myRadio.externalValueChange = false;
-        myRadio.setAttribute('data-val', idx);
+        myRadio.setAttribute('value', idx);
     }
 
     function drawRadio (val) {
-        myRadio.toggles[oldValue].setAttribute('data-val', 0);
+        myRadio.toggles[oldValue].setAttribute('value', 0);
         myRadio.toggles[oldValue].draw(0);
-        myRadio.toggles[val].setAttribute('data-val', 1);
+        myRadio.toggles[val].setAttribute('value', 1);
         myRadio.toggles[val].draw(1);
         oldValue = val;
     }
@@ -223,14 +339,15 @@ function radio (elem, config) {
     const mySetAttribute = myRadio.setAttribute;
     
     myRadio.setAttribute = function (key, value) {
-        if (key == 'data-val') {
+        if (key == 'value') {
             if (myRadio.externalValueChange == true) {
                 value = clamp(parseFloat(value).toFixed(0), 0, numButtons - 1);
             }
             mySetAttribute.call(myRadio, key, value);
             drawRadio(value);
             if (myRadio.externalValueChange == false) {
-                myRadio.dispatchEvent(valChangeEvent);
+                //                myRadio.dispatchEvent(valChangeEvent);
+                $(myRadio).trigger('data', { value: value });
                 myRadio.externalValueChange = true;
             }
         }
@@ -242,13 +359,13 @@ function radio (elem, config) {
             sliderType = 'vradio';
             getFraction = getYFractionRev;
             innerBorder = 'border-top';
-            myRadio.style.flexDirection = "column";
+            myRadio.style.flexDirection = 'column';
             break;
         case 'up':
             sliderType = 'vradio';
             getFraction = getYFraction;
             innerBorder = 'border-top';
-            myRadio.style.flexDirection = "column";
+            myRadio.style.flexDirection = 'column';
             break;
         case 'left':
             sliderType = 'hradio';
@@ -268,7 +385,8 @@ function radio (elem, config) {
 
     function init () {
         setDirection();
-        oldValue = clamp(parseFloat(myRadio.getAttribute('data-val')).toFixed(0), 0, numButtons - 1);
+//        console.log(backgroundOff.split(','));
+        oldValue = clamp(parseFloat(myRadio.getAttribute('value')).toFixed(0), 0, numButtons - 1);
         myRadio.toggles = createToggles(numButtons, myRadio);
         myRadio.style.display = 'flex';
         myRadio.addEventListener('mousedown', mouseDownListener);

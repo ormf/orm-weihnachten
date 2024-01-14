@@ -4,21 +4,21 @@ class BangElement extends HTMLElement {
     constructor() {
         // Always call super first in constructor
         super();
-        console.log("o-bang constructed: " + this );
+//        console.log("o-bang constructed: " + this );
     }
 
     connectedCallback() {
-        console.log("o-bang added to page: " + this );
+//        console.log("o-bang added to page: " + this );
         bang(this);
     }
 
     disconnectedCallback() {
         $(myBang).trigger("data", { close: true });
-        console.log("Custom element removed from page.");
+//        console.log("Custom element removed from page.");
     }
 
     adoptedCallback() {
-        console.log("Custom element moved to new page.");
+//        console.log("Custom element moved to new page.");
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
@@ -28,11 +28,8 @@ class BangElement extends HTMLElement {
 
 customElements.define("o-bang", BangElement );
 
-console.log("HiHo");
-
 function bang (elem) {
 
-    console.log('bang entered');
     var myBang;
     
     if (elem.nodeType == undefined)
@@ -40,14 +37,14 @@ function bang (elem) {
     else
         myBang = elem;
     let style = getComputedStyle(elem);
-    console.log(style.colorOn);
+//    console.log(style.colorOn);
     var flashTime        = myBang.getAttribute('flash-time') || '150'; // flash time in ms
 //    var pulseTime        = config.pulseTime || '250'; // pulse time in ms
     var colorOn          = myBang.getAttribute('color-on') || 'black';
     var colorOff         = myBang.getAttribute('color-off') || 'black';
     var backgroundOn     = myBang.getAttribute('background-on') || 'black';
     var backgroundOff    = myBang.getAttribute('background-off') || 'white';
-    var labelOn         = myBang.getAttribute('label-on') || '';
+    var labelOn          = myBang.getAttribute('label-on') || '';
     var labelOff         = myBang.getAttribute('label-off') || '';
 
 
@@ -155,7 +152,6 @@ function bang (elem) {
     function disable () { return false };
     
     function init () {
-        console.log('bang-init');
         myBang.flashTime = flashTime;
 //        myBang.pulseTime = pulseTime;
         myBang.externalValueChange = true;

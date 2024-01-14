@@ -8,7 +8,7 @@
 // initialization needs to be contained in the attributes of the
 // slider track div before calling slider().
 //
-// WARNING: Currently only changing the data-value attribute after
+// WARNING: Currently only changing the value attribute after
 // initialization is supported. All other attribute or style changes
 // after initialization probably have no or detrimental effects.
 //
@@ -28,10 +28,43 @@
 // GNU General Public License for more details.
 //
 // **********************************************************************
+
+// Attributes: min, max, mapping, clip-zero, thumb-color, bar-color
+
+class SliderElement extends HTMLElement {
+//  static observedAttributes = ["color", "size"];
+
+    constructor() {
+        // Always call super first in constructor
+        super();
+//        console.log("o-slider constructed: " + this );
+    }
+
+    connectedCallback() {
+//        console.log("o-slider added to page: " + this );
+        slider(this);
+    }
+
+    disconnectedCallback() {
+        $(mySlider).trigger("data", { close: true });
+//        console.log("o-slider removed from page.");
+    }
+
+    adoptedCallback() {
+//        console.log("o-slider moved to new page.");
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        console.log(`Attribute ${name} has changed.`);
+    }
+}
+
+customElements.define("o-slider", SliderElement );
+
 function slider(elem, config){
 //    var barColor      = config.barColor || 'transparent';
 //    var thumbColor    = config.thumbColor || 'black';
-    var thumb         = config.thumb || 'true';
+    var thumb         = 'true';
 
     var slider;
     if (elem.nodeType == undefined)
@@ -44,6 +77,7 @@ function slider(elem, config){
     }
 
     var sliderBar = document.createElement("div");
+    sliderBar.setAttribute('class', 'sliderbar');
     slider.appendChild(sliderBar);
 
     disableDrag(slider);
@@ -55,13 +89,13 @@ function slider(elem, config){
     var offsetLeft = slider.offsetLeft;
     var sliderHeight;
     var sliderWidth;
+    var thumbWidth;
     var colors;
     var minValue;
     var maxValue;
     var value;
     var mapping;
     var direction;
-    var clipZero = slider.getAttribute('data-clip-zero');
     var valFunction;
     var valFunctionRev;
     var valueRange;
@@ -74,11 +108,11 @@ function slider(elem, config){
     var oldFraction = -2;
 
     var style = window.getComputedStyle(slider, null);
-    var thumbColor = style.getPropertyValue('--thumb-color');
-    var barColor = style.getPropertyValue('--bar-color');
+    var clipZero = slider.getAttribute('clip-zero');
+    var thumbColor = slider.getAttribute('thumb-color');
+    var barColor = slider.getAttribute('bar-color');
 
     var getFraction;
-    var calcBarSize;;
 
     function clamp(number, min, max) {
         return Math.max(min, Math.min(number, max));
@@ -91,7 +125,9 @@ function slider(elem, config){
     }
 
     function getYFraction (event) {
-        let localYFrac = (sliderHeight + slider.getBoundingClientRect().top - event.clientY) / sliderHeight;
+        let rect = slider.getBoundingClientRect();
+        let localYFrac = (rect.height + rect.top - event.clientY) / (rect.height - (3 * thumbWidth));
+//        console.log(rect.height + ', ' + rect.top + ', ' + event.clientY + ', ' + thumbWidth + ', ' + localYFrac);
         return clamp(localYFrac, 0, 1);
     }
 
@@ -100,7 +136,8 @@ function slider(elem, config){
     }
 
     function getXFraction (event) {
-        let localXFrac = ((event.clientX - slider.getBoundingClientRect().left)) / sliderWidth;
+        let sliderRect =  slider.getBoundingClientRect();
+        let localXFrac = ((event.clientX - sliderRect.left)) / (sliderRect.width - (3 * thumbWidth));
         return clamp(localXFrac, 0, 1);
     }
 
@@ -109,7 +146,8 @@ function slider(elem, config){
     }
 
     function calcBarHeight (YFraction) {
-        let newBarSize = (YFraction * (sliderHeight - thumbWidth)) + 'px';
+        let sliderRect =  slider.getBoundingClientRect();
+        let newBarSize = (YFraction * (sliderRect.height - (3 * thumbWidth))) + 'px';
         if (newBarSize != oldBarSize) {
             oldBarSize = newBarSize;
             sliderBar.style.height = newBarSize;
@@ -117,7 +155,8 @@ function slider(elem, config){
     }
 
     function calcBarWidth (XFraction) {
-        let newBarSize = (XFraction * (sliderWidth - thumbWidth)) + 'px';
+        let sliderRect =  slider.getBoundingClientRect();
+        let newBarSize = (XFraction * (sliderRect.width - (3 * thumbWidth))) + 'px';
         if (newBarSize != oldBarSize) {
             oldBarSize = newBarSize;
             sliderBar.style.width = newBarSize;
@@ -154,7 +193,7 @@ function slider(elem, config){
             if (newValue !== oldValue) {
                 slider.externalValueChange = false;
                 calcBarSize(fraction);
-                slider.setAttribute('data-val', newValue);
+                slider.setAttribute('value', newValue);
                 slider.externalValueChange = true;
                 oldValue = newValue;
                 return newValue;
@@ -179,18 +218,20 @@ function slider(elem, config){
     const mySetAttribute = slider.setAttribute;
 
     slider.setAttribute = function (key, value) {
-            mySetAttribute.call(slider, key, value);
-        if (key == 'data-val') {
+        mySetAttribute.call(slider, key, value);
+//        console.log('attribute change: ' + key);
+        if (key == 'value') {
 //            console.log("val-change: " + value + ", oldValue: " + oldValue + ", external: " + slider.externalValueChange);
             if (slider.externalValueChange) {
                 if (value != oldValue) {
-                    oldValue = value;
-                    let fraction = valFunctionRev(value);
+                    oldValue = parseFloat(value);
+                    let fraction = (oldValue-minValue) / (maxValue-minValue);
+//                    console.log("value " + oldValue + ", minValue: " + minValue + ", maxValue: " + maxValue + ", fraction: " + fraction);
                     calcBarSize(fraction);
                 }
             }
-            else 
-                slider.dispatchEvent(valChangeEvent);
+            else
+                $(slider).trigger("data", { value: parseFloat(value) });
         }
     }
     
@@ -204,8 +245,8 @@ function slider(elem, config){
     }
     
     function setDirection () {
-        direction = slider.getAttribute("data-direction") || 'up';
-        thumbWidth = 0.5; // will get reset below in case thumb == 'true';
+        direction = slider.getAttribute("direction") || 'up';
+        thumbWidth = '0.15em'; // will get reset below in case thumb == 'true';
         switch (direction) {
         case 'right':
             sliderBar.style.height = '100%';
@@ -279,31 +320,31 @@ function slider(elem, config){
 
     function setSliderValue () {
         if (maxValue >= minValue)
-            value = clamp(parseFloat((slider.getAttribute("data-val")) || 0.0 ), minValue, maxValue);
+            value = clamp(parseFloat((slider.getAttribute("value")) || 0.0 ), minValue, maxValue);
         else
-            value = clamp(parseFloat((slider.getAttribute("data-val")) || 0.0 ), maxValue, minValue);
+            value = clamp(parseFloat((slider.getAttribute("value")) || 0.0 ), maxValue, minValue);
     }
 
     function setMinMaxMapping () {
-        minValue      = parseFloat(slider.getAttribute("data-min")) || 0.0;
-        maxValue      = parseFloat(slider.getAttribute("data-max")) || 1.0;
-        mapping       = slider.getAttribute("data-mapping") || 'lin';
+        minValue      = parseFloat(slider.getAttribute("min")) || 0.0;
+        maxValue      = parseFloat(slider.getAttribute("max")) || 1.0;
+        mapping       = slider.getAttribute("mapping") || 'lin';
         if (mapping == 'log') {
             if ((minValue == 0) && (maxValue == 0)) {
                 minValue = 0.01;
                 maxValue = 1;
-                slider.setAttribute('data-min', minvalue);
-                slider.setAttribute('data-max', maxValue);
+                slider.setAttribute('min', minvalue);
+                slider.setAttribute('max', maxValue);
             }
             else {
                 if (minValue == 0) {
                     minValue = maxValue / 100;
-                    slider.setAttribute('data-min', minValue);
+                    slider.setAttribute('min', minValue);
                 }
                 else {
                     if (maxValue == 0) {
                         maxValue = minValue / 100;
-                        slider.setAttribute('data-max', maxValue);
+                        slider.setAttribute('max', maxValue);
                     }
                 }
             }
@@ -361,7 +402,6 @@ function slider(elem, config){
         setSliderBarStyle();
         sliderHeight = parseFloat(style.height.match(pxRegex)[1]);
         sliderWidth = parseFloat(style.width.match(pxRegex)[1]);
-        clipZero = slider.getAttribute("data-clip-zero") || 'false';
         setMinMaxMapping(sliderBar);
         slider.addEventListener('mousedown', mouseDownListener)
         slider.externalValueChange = true;

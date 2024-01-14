@@ -22,6 +22,14 @@
 
 ;;;;;; tutorial
 
+(defparameter unbind-rel (watch (lambda () (format t "~&x-val: ~a~%" (get-val x)))))
+
+*bindings*
+
+(set-val radio 3)
+
+(funcall unbind-rel)
+
 ; define a ref object
 (defparameter x (ref 10))
 ; you can get and set it

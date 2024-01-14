@@ -8,9 +8,9 @@ body{
   height: 108rem;
   font-size: 1.6rem;
   outline: 1px solid red;
-  /* display: grid; */
-  /* grid-template-columns: repeat(12, 1fr); */
-  /* grid-template-rows: max-content; */
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: max-content;
   background-color: #444;
   font-family: sans-serif;
 }
@@ -50,9 +50,8 @@ body{
 
 .collection{
     display: flex;
-//    padding: 0.5rem;
-    justify-content: flex-start; /* flex-start, flex-end */
-    align-items: left; /* center flex-start, flex-end
+    justify-content: center; /* flex-start, flex-end */
+    align-items: center; /* center flex-start, flex-end
   outline: 0.1em solid black;
 }
 
@@ -145,8 +144,8 @@ o-bang {
     position: relative;
     font-size: 2em;
     user-select: none;
-    width: 1em;
-    height: 1em;
+    width: 4em;
+    height: 1.5em;
     margin-top: 0px;
     margin-bottom: 0px;
     margin-left: 0px;
@@ -163,8 +162,8 @@ o-toggle {
     position: relative;
     font-size: 2em;
     user-select: none;
-    width: 1em;
-    height: 1em;
+    width: 4em;
+    height: 1.5em;
     margin-top: 0px;
     margin-bottom: 0px;
     margin-left: 0px;
@@ -179,10 +178,10 @@ o-toggle {
 
 o-radio {
     position: relative;
-    font-size: 1.6em;
+    font-size: 2em;
     user-select: none;
-    width: 1em;
-//    height: 8em;
+    width: 32em;
+    height: 1.5em;
     margin-top: 0px;
     margin-bottom: 0px;
     margin-left: 0px;
@@ -199,8 +198,8 @@ o-slider {
     position: relative;
     font-size: 2em;
     user-select: none;
-    width: 1em;
-    height: 8em;
+    width: 1.5em;
+    height: 1.5em;
     margin-top: 0px;
     margin-bottom: 0px;
     margin-left: 0px;
@@ -210,30 +209,17 @@ o-slider {
     background: transparent;
 }
 
-
 o-multislider {
     position: relative;
     font-size: 2em;
     user-select: none;
-    width: 8em;
-    height: 8em;
+    width: 12em;
+    height: 1.5em;
     margin-top: 0px;
     margin-bottom: 0px;
     margin-left: 0px;
     margin-right: 0px;
-    border: none;
+    border: solid 1px;
     text-align: center;
     background: transparent;
-    display: flex;
-}
-
-.mvslider {
-    flex-direction: column-reverse;
-    display: flex;
-
-}
-
-.sliderbar {
-    position: relative;
-    width: 100%;
 }

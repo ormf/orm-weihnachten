@@ -30,14 +30,19 @@
 
 ;;; this is the core object
 
-(defclass ref-object ()
+(defclass ref-object-super ()
   ((id :initform (get-ref-id) :reader ref-id)
-   (value :initarg :value :accessor ref-value)
-   (setter :initarg :setter :initform '() :reader ref-setter)
-   (fun :initarg :fun  :initform '() :reader ref-fun)
-   (update :initarg :update  :initform '() :accessor ref-update)
    (listeners :initarg :listeners :initform '() :accessor ref-listeners)
    (dependencies :initarg :dependencies :initform '() :accessor ref-dependencies)))
+
+(defclass bang-object (ref-object-super)
+  ((value :initarg :value :initform nil :reader ref-value)))
+
+(defclass ref-object (ref-object-super)
+  ((value :initarg :value :accessor ref-value)
+   (setter :initarg :setter :initform '() :reader ref-setter)
+   (fun :initarg :fun  :initform '() :reader ref-fun)
+   (update :initarg :update  :initform '() :accessor ref-update)))
 
 (defmethod print-object ((obj ref-object) stream)
   (format stream "#<ref ~a>" (ref-value obj)))
@@ -88,6 +93,19 @@ to get-val (see #'make-computed and #'watch)."
     (pushnew ref (ref-dependencies *curr-ref*)))
   (ref-value ref))
 
+(defmethod print-object ((obj bang-object) stream)
+  (format stream "#<bang>"))
+
+(defun make-bang (&optional fn)
+  (make-instance 'bang-object :listeners (if fn (list fn))))
+
+(defun %trigger (obj)
+  (map nil #'funcall (ref-listeners obj)))
+
+(defgeneric trigger (obj)
+  (:method ((obj bang-object))
+    (let ((*refs-seen* nil)) (map nil #'funcall (ref-listeners obj)))))
+
 (defun clear-dependencies (co cb)
   "clear all dependencies of a computed ref object."
   (dolist (dep (ref-dependencies co))
@@ -106,11 +124,11 @@ to get-val (see #'make-computed and #'watch)."
 ;;; this is another constructor but instead of a value we can add a function.
 ;;; Together with the getter it tracks which object was accessed and adds it to the dependencies.
 
-(defun make-computed (f &optional (setter nil))
-  "define/create a ref variable using f to calculate its value with
-automagic update whenever any value in f changes."
+(defun make-computed (fn &optional (setter nil))
+  "define/create a ref variable using fn to calculate its value with
+automagic update whenever any ref value in fn changes."
 ;;; let* is sequential to avoid nesting of multiple let
-  (let* ((new-ref (make-ref nil :fun f :setter setter))
+  (let* ((new-ref (make-ref nil :fun fn :setter setter))
          (update-callback (lambda (&optional old new) (declare (ignorable old new)) (funcall (ref-update new-ref)))))
     (with-updating-deps
       (setf (ref-update new-ref)
@@ -121,23 +139,25 @@ automagic update whenever any value in f changes."
                       (*curr-callback* update-callback))
 ;;; update dependencies and store new value without using setter.
 ;;;
-;;; the funcall of f (the argument of computed) is closed over dynamic
-;;; bindings of new-ref and update-callback (being a funcall of this
-;;; update fn); if f executes any get-val functions, their ref gets
-;;; pushed into the ref-dependencies of new-ref and the
+;;; the funcall of fn (the first argument of computed) is closed over
+;;; dynamic bindings of new-ref and update-callback (being a funcall
+;;; of this update fn); if fn executes any get-val functions, their
+;;; ref gets pushed into the ref-dependencies of new-ref and the
 ;;; update-callback gets pushed into the listeners of the get-val
 ;;; ref. This update-callback will therefore get called whenver the
 ;;; ref is changed using set-ref.
-                  (setf (ref-value new-ref) (funcall f)))
+                  (setf (ref-value new-ref) (funcall fn)))
                 (let ((*curr-ref* nil)
                       (*curr-callback* nil))
-;;; we have to update listeners manually as we did not use %set-val to set the ref-value three lines above.
+;;; we have to update listeners manually as we did not use %set-val to
+;;; set the ref-value three lines above.
                   (unless (equal (ref-value new-ref) old)
                     (dolist (listener (ref-listeners new-ref))
                       (unless (member listener *refs-seen*)
                         (push listener *refs-seen*)
                         (funcall listener old (ref-value new-ref)))))))
               new-ref))
+      ;; call the update function once to register all callbacks.
       (funcall (ref-update new-ref)))))
 
 ;;; watch is similar to make-computed. In contrast to make-computed it
@@ -150,7 +170,6 @@ automagic update whenever any value in f changes."
 ;;; Note: This function doesn't return the new ref-object, but an
 ;;; unwatch function to remove the ref-object and all its
 ;;; dependencies.
-
 
 (defun watch (f)
   (let* ((new-ref (make-ref nil :fun f))
@@ -186,9 +205,10 @@ automagic update whenever any value in f changes."
     (lambda () ;;; return the unwatch/cleanup fn
       (clear-dependencies new-ref update-callback)
       (makunbound 'new-ref))))
-
+#|
 (defun remove-watch (ref)
-  (funcall (ref-cleanup ref)))
+  (when (ref-cleanup ref) (funcall (ref-cleanup ref))))
+|#
 
 ;;; just a helper function. I heard you like to copy variables. This is how to copy a ref:
 (defun copy (ref)
@@ -235,27 +255,67 @@ automagic update whenever any value in f changes."
 (defun make-binding (&rest args)
   (apply #'make-instance 'binding args))
 
-(defun bind-ref-to-attr (refvar attr &optional (map (lambda (val) val)))
-  "bind a ref to an attr of a html element. This will establish a watch
-function, which will automatically set the attr of all registered html
-elements on state change of the refvar. Registering html elements is
-done by pushing the html element to the b-elist slot of the
-binding (normally done in the creation function of the html element)."
-  (let ((name (binding-name refvar attr)))
-    (or (gethash name *bindings*) ;;; or returns the first non-nil argument and skips evaluating the rest of its args.
-        (let ((new (make-binding :ref refvar :attr attr :map map)))
-          (setf (b-unwatch new)
-                (watch ;;; watch registers an on-update function
-                 (lambda ()
-                   (let ((val (get-val refvar)))
-                     (if *debug* (format t "~&~%elist: ~a~%" (b-elist new)))
-                     (if *debug* (format t "~&~%seen: ~a~%" (obj-print *refs-seen*)))
-                     (dolist (obj (b-elist new)) ;;; iterate through all bound html elems
-                       (unless (member obj *refs-seen*)
-                         (if *debug* (format t "~&~%watch update: ~a~%-> ~a ~a~%" (obj-print *refs-seen*) obj val))
-                         (push obj *refs-seen*)
-                         (setf (attribute obj attr) val)))))))
-          (setf (gethash name *bindings*) new))))) ;;; (setf (gethash...) ) returns the value which got set (new in this case).
+;;; (trigger x-bang)
+
+(defgeneric define-watch (refvar attr new)
+  (:method ((refvar ref-object) attr new)
+    (watch ;;; watch registers an on-update function
+     (lambda ()
+       (let ((val (get-val refvar)))
+         (if *debug* (format t "~&~%elist: ~a~%" (b-elist new)))
+         (if *debug* (format t "~&~%seen: ~a~%" (obj-print *refs-seen*)))
+         (dolist (obj (b-elist new)) ;;; iterate through all bound html elems
+           (unless (member obj *refs-seen*)
+             (if *debug* (format t "~&~%watch update: ~a~%-> ~a ~a~%" (obj-print *refs-seen*) obj val))
+             (push obj *refs-seen*)
+             (setf (attribute obj attr) val)))))))
+  (:method ((refvar bang-object) attr new)
+    (watch ;;; watch registers an on-update function
+     (lambda ()
+       (let ((val (get-val refvar))) ;; we read val only to register
+                                      ;; the watch function in the
+                                      ;; listeners of the bang
+       (declare (ignore val))
+       (if *debug* (format t "~&~%elist: ~a~%" (b-elist new)))
+       (if *debug* (format t "~&~%seen: ~a~%" (obj-print *refs-seen*)))
+       (dolist (obj (b-elist new)) ;;; iterate through all bound html elems
+         (unless (member obj *refs-seen*)
+           (if *debug* (format t "~&~%watch update: ~a~%-> ~a~%" (obj-print *refs-seen*) obj))
+           (push obj *refs-seen*)
+           (format t "clicking: ~A" (script-id obj))
+           (js-execute obj (format nil "~A.bang()" (script-id obj)))
+           )))))))
+
+(defvar *test* (make-bang (lambda () (+ (get-val x) 3))))
+
+(typep *test* 'ref-object-super)
+
+(defgeneric bind-ref-to-attr (refvar attr &optional map)
+  (:method ((refvar ref-object-super) attr &optional (map (lambda (val) val)))
+    (let ((name (binding-name refvar attr)))
+      (or (gethash name *bindings*) ;;; or returns the first non-nil argument and skips evaluating the rest of its args.
+          (let ((new (make-binding :ref refvar :attr attr :map map)))
+            (setf (b-unwatch new) (define-watch refvar attr new))
+            (setf (gethash name *bindings*) new)))))
+  (:method ((refvar-array simple-array) attr &optional (map (lambda (val) val)))
+    (let ((binding-array (make-array (length refvar-array))))
+      (loop for refvar across refvar-array
+            for idx from 0
+            do (setf (aref binding-array idx)
+                     (let ((name (binding-name refvar attr)))
+                       (or (gethash name *bindings*) ;;; or returns the first non-nil argument and skips evaluating the rest of its args.
+                           (let ((new (make-binding :ref refvar :attr attr :map map)))
+                             (setf (b-unwatch new) (define-watch refvar attr new))
+                             (setf (gethash name *bindings*) new)))))
+            finally (return binding-array))))
+  (:documentation "bind a ref (or an array of refs) to an attr of a html element. This
+will establish a watch function, which will automatically set the attr
+of all registered html elements on state change of the
+refvar. Registering html elements is done by pushing the html element
+to the b-elist slot of the binding (normally done in the creation
+function of the html element)."))
+
+ ;;; (setf (gethash...) ) returns the value which got set (new in this case).
 
 (defun obj-print (seq)
   (format nil "(~{~a~^ ~})"
@@ -348,7 +408,7 @@ binding (normally done in the creation function of the html element)."
        ,option))
 
 (defun opt-format-attr (attr val)
-  (when val (format nil "~a=\"~a\"" attr val)))
+  (when val (format nil "~a='~(~a~)'" attr val)))
 
 (defun create-o-bang (parent binding &key label (background '("transparent" "orange")) color flash-time)
   (let ((var (b-ref binding))
@@ -365,21 +425,189 @@ binding (normally done in the creation function of the html element)."
                            (opt-format-attr "color-on" (option-second color))
                            (opt-format-attr "flash-time" flash-time))
                           (or (option-main label) "")))))
-    (declare (ignore var))
     (push element (b-elist binding)) ;;; register the browser page's html elem for value updates.
     (set-on-data element ;;; react to changes in the browser page
                  (lambda (obj data)
-		   (declare (ignore obj))
                    (let ((*refs-seen* (list element)))
                      (if *debug* (format t "~&~%clog event from ~a: ~a~%" element
                                          (or (if (gethash "close" data) "close")
                                              (gethash attr data))))
                      (cond ((gethash "close" data)
                             (progn
-                              (format t "closing numbox~%")
+                              (format t "closing bang~%")
                               (setf (b-elist binding) (remove element (b-elist binding))))) ;;; cleanup: unregister elem.
                            ((gethash "bang" data)
-                            (format t "bang received"))))))))
+                            (let ((*refs-seen* (list obj)))
+                              (%trigger var)))))))))
+
+(defun array->attr (arr)
+  (format nil "[~{~a~^, ~}]" (coerce arr 'list)))
+
+
+
+(defun create-o-toggle (parent binding &key label (background '("transparent" "orange")) color flash-time values)
+  (let ((var (b-ref binding))
+        (attr (b-attr binding))
+        (element (create-child
+                  parent
+                  (format nil "<o-toggle ~{~@[~a ~]~}>~@[~a~]</o-toggle>"
+                          (list
+                           (opt-format-attr "value" (or (first values) 0))
+                           (opt-format-attr "label-off" (option-main label))
+                           (opt-format-attr "label-on" (option-second label))
+                           (opt-format-attr "background-off" (option-main background))
+                           (opt-format-attr "background-on" (option-second background))
+                           (opt-format-attr "color-off" (option-main color))
+                           (opt-format-attr "color-on" (option-second color))
+                           (opt-format-attr "flash-time" flash-time)
+                           (opt-format-attr "value-off" (or (first values) 0))
+                           (opt-format-attr "value-on" (or (second values) 1)))
+                          (or (option-main label) "")))))
+    (push element (b-elist binding)) ;;; register the browser page's html elem for value updates.
+    (set-on-data element ;;; react to changes in the browser page
+                 (lambda (obj data)
+                   (declare (ignore obj))
+                   (let ((*refs-seen* (list element)))
+                     (if *debug* (format t "~&~%clog event from ~a: ~a~%" element
+                                         (or (if (gethash "close" data) "close")
+                                             (gethash attr data))))
+                     (cond ((gethash "close" data)
+                            (progn
+                              (format t "closing toggle~%")
+                              (setf (b-elist binding) (remove element (b-elist binding)))))
+                           (t (%set-val var (read-from-string (gethash attr data))))
+                           ))))))
+
+(defun create-o-radio (parent binding &key labels label (background '("transparent" "orange")) color flash-time values
+                                        (num 8) (direction :right))
+  (declare (type (member :up :right :down :left) direction))
+  (let ((var (b-ref binding))
+        (attr (b-attr binding)) ;;; format nil "~{~a~^,~}"
+        (element (create-child
+                  parent
+                  (format nil "<o-radio ~{~@[~a ~]~}>~@[~a~]</o-radio>"
+                          (list
+                           (opt-format-attr "value" (or (first values) 0))
+                           (opt-format-attr "label-off" (if (option-main labels)
+                                                            (format nil "~{~a~^,~}" (option-main labels))))
+                           (opt-format-attr "label-on" (if (option-second labels)
+                                                           (format nil "~{~a~^,~}" (option-second labels))))
+                           (opt-format-attr "background-off" (if (option-main background)
+                                                                 (format nil "~{~a~^,~}" (option-main background))))
+                           (opt-format-attr "background-on" (if (option-second background)
+                                                                (format nil "~{~a~^,~}" (option-second background))))
+                           (opt-format-attr "color-off" (if (option-main color)
+                                                            (format nil "~{~a~^,~}" (option-main color))))
+                           (opt-format-attr "color-on" (if (option-second color)
+                                                           (format nil "~{~a~^,~}" (option-second color))))
+                           (opt-format-attr "flash-time" flash-time)
+                           (opt-format-attr "value-off" (or (first values) 0))
+                           (opt-format-attr "value-on" (or (second values) 1))
+                           (opt-format-attr "data-num" (or num 8))
+                           (opt-format-attr "direction" direction))
+                          (or (option-main label) "")))))
+    (push element (b-elist binding)) ;;; register the browser page's html elem for value updates.
+    (set-on-data element ;;; react to changes in the browser page
+                 (lambda (obj data)
+                   (declare (ignore obj))
+                   (let ((*refs-seen* (list element)))
+                     (if *debug* (format t "~&~%clog event from ~a: ~a~%" element
+                                         (or (if (gethash "close" data) "close")
+                                             (gethash attr data))))
+                     (cond ((gethash "close" data)
+                            (progn
+                              (format t "closing radio~%")
+                              (setf (b-elist binding) (remove element (b-elist binding)))))
+                           (t (%set-val var (gethash attr data)))))))))
+
+(defun create-o-slider (parent binding &key (direction :up) (value 0) (min 0) (max 1)
+                                         label background thumb-color bar-color
+                                         (mapping :lin) (clip-zero nil))
+  (declare (type (member :lin :log) mapping)
+           (type (member :up :right :down :left) direction))
+  (let ((var (b-ref binding))
+        (attr (b-attr binding)) ;;; format nil "~{~a~^,~}"
+        (element (create-child
+                  parent
+                  (format nil "<o-slider ~{~@[~a ~]~}>~@[~a~]</o-slider>"
+                          (list
+                           (opt-format-attr "direction" direction)
+                           (opt-format-attr "value" value)
+                           (opt-format-attr "min" min)
+                           (opt-format-attr "max" max)
+                           (opt-format-attr "label" label)
+                           (opt-format-attr "background" (or background "white"))
+                           (opt-format-attr "thumb-color" (or thumb-color "black"))
+                           (opt-format-attr "bar-color" (or bar-color "transparent") )
+                           (opt-format-attr "mapping" mapping )
+                           (opt-format-attr "clip-zero" clip-zero ))
+                          (or (option-main label) "")))))
+    (push element (b-elist binding)) ;;; register the browser page's html elem for value updates.
+    (set-on-data element ;;; react to changes in the browser page
+                 (lambda (obj data)
+                   (declare (ignore obj))
+                   (let ((*refs-seen* (list element))) ;;; set context for %set-val below
+                     (if *debug* (format t "~&~%clog event from ~a: ~a~%" element
+                                         (or (if (gethash "close" data) "close")
+                                             (gethash attr data))))
+                     (cond ((gethash "close" data)
+                            (progn
+                              (format t "closing slider~%")
+                              (setf (b-elist binding) (remove element (b-elist binding)))))
+                           (t (%set-val var (gethash attr data)))))))))
+
+;;; min, max, mapping, clip-zero, thumb-color, bar-color
+
+(defun create-o-multislider (parent binding-array
+                             &key (direction :up) (value 0) (min 0) (max 1)
+                               label background colors
+                               (mapping :lin) (clip-zero nil))
+  (declare (type (member :lin :log) mapping)
+           (type (member :up :right :down :left) direction))
+  (let ((attr (b-attr (aref binding-array 0)))
+        (element (create-child
+                  parent
+                  (format nil "<o-multislider ~{~@[~a ~]~}>~@[~a~]</o-multislider>"
+                          (list
+                           (opt-format-attr "num-sliders" (length binding-array))
+                           (opt-format-attr "direction" direction)
+                           (opt-format-attr "value" value)
+                           (opt-format-attr "min" min)
+                           (opt-format-attr "max" max)
+                           (opt-format-attr "label" label)
+                           (opt-format-attr "background" (or background "white"))
+                           (opt-format-attr "colors" (if colors (format nil "~{~a~^,~}" colors)))
+                           (opt-format-attr "mapping" mapping )
+                           (opt-format-attr "clip-zero" clip-zero ))
+                          (or (option-main label) "")))))
+    (loop for binding across binding-array
+          do (push element (b-elist binding))) ;;; register the
+                                               ;;; browser page's html
+                                               ;;; elem in all refs
+                                               ;;; for value updates.
+    (set-on-data element ;;; react to changes in the browser page
+                 (let ((var-array (coerce
+                                   (loop
+                                     for binding across binding-array
+                                     collect (b-ref binding))
+                                   'vector)))
+                   (lambda (obj data)
+                     (declare (ignore obj))
+                   ;;; set context for %set-val below
+                     (if *debug* (format t "~&~%clog event from ~a: ~a~%" element
+                                         (or (if (gethash "close" data) "close")
+                                             (gethash attr data))))
+                     (cond ((gethash "close" data)
+                            (progn
+                              (format t "closing multislider~%")
+                              (loop for binding across binding-array do
+                                  (setf (b-elist binding) (remove element (b-elist binding))))))
+                           (t (let* ((idx (gethash "idx" data))
+                                     (value (gethash attr data))
+                                     (*refs-seen* (list (aref var-array idx)))) 
+                                (%set-val (aref var-array idx) value)))))))))
+
+
 
 ;; array as attribute: <div id="demo" data-stuff='["some", "string", "here"]'></div>
 
@@ -410,54 +638,53 @@ binding (normally done in the creation function of the html element)."
 
 (defparameter *debug* nil)
 
-(defparameter x (make-ref 5.))
-(defparameter x-db
-  (make-computed
-   (lambda () ;;; referred val or vals->this
-     (progn
-       (if *debug* (format t "~&recalc x->dB~%"))
-       (min 0 (max -40 (round (rms->db (get-val x)))))))
-   (lambda (val) ;;; this->referred val or vals
-     (progn
-       (if *debug* (format t "~&recalc dB->x: ~a~%" val))
-       (%set-val x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val))))))))))
+
+(defparameter x-bang nil)
+
+(defparameter x nil)
+(defparameter x-db nil)
+(defparameter radio nil)
+(defparameter mslider nil)
 
 (progn
   (clear-bindings)
   (setf x (make-ref 0.5))
+  (setf x-bang (make-bang (lambda () (set-val x 0))))
   (setf x-db
         (make-computed
-         (lambda () ;;; referred val or vals->this
-           (progn
-             (if *debug* (format t "~&recalc x->dB~%"))
-             (min 0 (max -40 (round (rms->db (get-val x)))))))
-         (lambda (val) ;;; this->referred val or vals
-           (progn
-             (if *debug* (format t "~&recalc dB->x: ~a~%" val))
-             (%set-val x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val))))))))))
+         (lambda () (min 0 (max -40 (round (rms->db (get-val x))))))
+         (lambda (val) (%set-val x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val)))))))))
+  (setf radio
+        (make-computed
+         (lambda () (round (/ (+ 40 (get-val x-db)) 40/7)))
+         (lambda (val) (%set-val x-db (- (float (* val 40/7)) 40)))))
+  (setf mslider (make-array 8 :initial-contents (loop repeat 8 collect (make-ref 0))))
+  (setf (aref mslider 0) x)
   nil)
-
-
-;;; set the path for the current working directory
-(uiop:chdir (asdf:system-relative-pathname :orm-weihnachten ""))
 
 ;;; Define our CLOG application
 (defun new-window (body)
   "On-new-window handler."
-  (setf (title (html-document body)) "Frohe Weihnachten")
+  (setf (title (html-document body)) "Gui Test")
   (let ((collection (create-collection body "1/2")))
     (create-o-numbox collection (bind-ref-to-attr x "value") 0 1 :precision 2)
     (create-o-knob collection (bind-ref-to-attr x "value") 0 1 0.01)
     (create-o-knob collection (bind-ref-to-attr x "value") 0 1 0.01)
     (create-o-knob collection (bind-ref-to-attr x-db "value") -40 0 1 :unit "dB" :precision 0)
-    (create-o-bang collection (bind-ref-to-attr x-db "value"))
+    (create-o-bang collection (bind-ref-to-attr x-bang "bang"))
+    (create-o-toggle collection (bind-ref-to-attr x "value"))
+    (create-o-radio collection (bind-ref-to-attr radio "value")
+                    :direction :up
+                    :background '(("#444" "#888") ("orange"))
+                    :labels (list (loop for num below 8 collect num)))
+    (create-o-slider collection (bind-ref-to-attr x "value") :background "transparent")
+    (create-o-multislider collection (bind-ref-to-attr mslider "value") :colors '("#8f8" "#f88" "#44f") :background "transparent")
 ;;    (create-o-knob collection (bind-ref-to-attr "sum-value" sum "value") -100 100 0.25)
     ))
 
 ;;; I did not want to restart the server everytime I changed the new-window fun thats why I had this proxy.
 (defun on-new-window (body)
   (new-window body))
-
 
 (defun start ()
   ;; Initialize the CLOG system with my boot file and my static files (I have no idea if this is the right way).
@@ -468,5 +695,7 @@ binding (normally done in the creation function of the html element)."
   ;; Open a browser to http://127.0.0.1:8080 - the default for CLOG apps
   (open-browser))
 
-; that should start a webserver with three knobs that get change their value by drag and moving in x direction (maybe not the most intuitive way).
+;;; that should start a webserver with three knobs that get change their
+;;; value by drag and moving in x direction (maybe not the most
+;;; intuitive way).
 ;;; (start)

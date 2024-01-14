@@ -38,7 +38,7 @@ class NumBoxElement extends HTMLInputElement {
 
 
     connectedCallback() {
-        console.log("o-numbox added to page: " + this.value );
+//        console.log("o-numbox added to page: " + this.value );
         numbox(this);
     }
 
