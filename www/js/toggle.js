@@ -11,11 +11,11 @@ class ToggleElement extends HTMLElement {
 
     connectedCallback() {
 //        console.log('o-toggle added to page: ' + this );
-        toggle(this);
+        toggle(this, { unloadEvent: true });
     }
 
     disconnectedCallback() {
-        $(myToggle).trigger('data', { close: true });
+        $(this).trigger('data', { close: true });
 //        console.log('o-toggle removed from page.');
     }
 
@@ -33,7 +33,8 @@ customElements.define('o-toggle', ToggleElement );
 function toggle (elem, config) {
 
     var myToggle;
-    
+
+    var unloadEvent = config.unloadEvent;
     if (elem.nodeType == undefined)
         myToggle = elem.get(0);
     else
@@ -119,6 +120,9 @@ function toggle (elem, config) {
         myToggle.valueOn = valueOn;
         myToggle.ondragstart = () => { return false; }
         myToggle.addEventListener('mousedown', mouseDownListener);
+        if (unloadEvent)
+            addEventListener('beforeunload', (event) => {
+                $(myToggle).trigger("data", {close: true})});
         myToggle.onselectstart = disable;
         // myToggle.addEventListener('dblclick', function(event) {
         //     event.preventDefault();
@@ -153,7 +157,7 @@ class RadioElement extends HTMLElement {
     }
 
     disconnectedCallback() {
-        $(myRadio).trigger('data', { close: true });
+        $(this).trigger('data', { close: true });
         console.log('o-radio removed from page.');
     }
 
@@ -168,7 +172,7 @@ class RadioElement extends HTMLElement {
 
 customElements.define('o-radio', RadioElement );
 
-function radio (elem, config) {
+function radio (elem) {
 
     var myRadio;
 
@@ -280,7 +284,7 @@ function radio (elem, config) {
             currToggle.setAttribute('label-on', labelOn[idx%lenLbOn]);
             if (i > 0) currToggle.style.setProperty(innerBorder, 'none');
             toggles[idx] = currToggle;
-            toggle(currToggle, {});
+            toggle(currToggle, { unloadEvent: false });
             if (idx == oldValue) {
                 currToggle.setAttribute('value', 1);
                 currToggle.draw(1);
@@ -390,6 +394,8 @@ function radio (elem, config) {
         myRadio.toggles = createToggles(numButtons, myRadio);
         myRadio.style.display = 'flex';
         myRadio.addEventListener('mousedown', mouseDownListener);
+        addEventListener('beforeunload', (event) => {
+            $(myRadio).trigger("data", {close: true})});
         myRadio.onselectstart = disable;
     }
     

@@ -199,8 +199,8 @@ o-slider {
     position: relative;
     font-size: 2em;
     user-select: none;
-    width: 1em;
-    height: 8em;
+//    width: 1em;
+//    height: 8em;
     margin-top: 0px;
     margin-bottom: 0px;
     margin-left: 0px;
@@ -225,12 +225,13 @@ o-multislider {
     text-align: center;
     background: transparent;
     display: flex;
+    flex: 0 0 auto;
 }
 
 .mvslider {
     flex-direction: column-reverse;
     display: flex;
-
+    flex: 1 1 auto;
 }
 
 .sliderbar {

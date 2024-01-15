@@ -22,5 +22,5 @@
 (in-package :cl-user)
 
 (defpackage #:orm-weihnachten
-  (:use #:cl #:clog)
-  (:export #:START #:WATCH))
+  (:use #:cl #:clog #:cl-refs #:clog-widgets)
+  (:export #:START))

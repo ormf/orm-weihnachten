@@ -26,6 +26,14 @@
 
 *bindings*
 
+
+(set-val x (+ 0.1 (get-val x)))
+
+(execute (second (b-elist (gethash "ref1-value" *bindings*)))
+         "bang()")
+
+    (execute element (format nil "initSliders(~a)" num-sliders) )
+
 (set-val radio 3)
 
 (funcall unbind-rel)

@@ -13,7 +13,6 @@ class BangElement extends HTMLElement {
     }
 
     disconnectedCallback() {
-        $(myBang).trigger("data", { close: true });
 //        console.log("Custom element removed from page.");
     }
 
@@ -165,6 +164,8 @@ function bang (elem) {
         myBang.labelOn = labelOn;
         myBang.ondragstart = disable;
         myBang.addEventListener('mousedown', mouseDownListener);
+        addEventListener('beforeunload', (event) => {
+            $(myBang).trigger("data", {close: true})});
         myBang.onselectstart = disable;
         myBang.textContent = myBang.labelOff;
         myBang.style.color = myBang.colorOff;

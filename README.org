@@ -21,6 +21,8 @@
 
 ** Install
 
+   - clone [[https://github.com/ormf/cl-refs][cl-refs]] into  =$HOME/quicklisp/local-projects=
+
    - clone this repository into =$HOME/quicklisp/local-projects=
 
    - Start lisp and issue =(ql:quickload :orm-weihnachten)=

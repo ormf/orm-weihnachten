@@ -348,7 +348,8 @@ function numbox(elem) {
         else value = checkMinMax(value);
         numbox.value = formatNumBox(value, precision);
         numbox.currValue = value;
-        numbox.addEventListener('data', e => console.log(e.detail.value));
+        addEventListener('beforeunload', (event) => {
+            $(numbox).trigger("data", {close: true})});
     }
 
     init();

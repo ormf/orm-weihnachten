@@ -46,8 +46,9 @@ class SliderElement extends HTMLElement {
     }
 
     disconnectedCallback() {
-        $(mySlider).trigger("data", { close: true });
-//        console.log("o-slider removed from page.");
+        $(this).trigger("data", { close: true });
+        console.log("o-slider removed from page.");
+
     }
 
     adoptedCallback() {
@@ -61,7 +62,7 @@ class SliderElement extends HTMLElement {
 
 customElements.define("o-slider", SliderElement );
 
-function slider(elem, config){
+function slider(elem) {
 //    var barColor      = config.barColor || 'transparent';
 //    var thumbColor    = config.thumbColor || 'black';
     var thumb         = 'true';
@@ -89,7 +90,7 @@ function slider(elem, config){
     var offsetLeft = slider.offsetLeft;
     var sliderHeight;
     var sliderWidth;
-    var thumbWidth;
+    var thumbWidth = 0;
     var colors;
     var minValue;
     var maxValue;
@@ -126,7 +127,7 @@ function slider(elem, config){
 
     function getYFraction (event) {
         let rect = slider.getBoundingClientRect();
-        let localYFrac = (rect.height + rect.top - event.clientY) / (rect.height - (3 * thumbWidth));
+        let localYFrac = (rect.height + rect.top - event.clientY) / (rect.height - (2 * thumbWidth));
 //        console.log(rect.height + ', ' + rect.top + ', ' + event.clientY + ', ' + thumbWidth + ', ' + localYFrac);
         return clamp(localYFrac, 0, 1);
     }
@@ -136,8 +137,8 @@ function slider(elem, config){
     }
 
     function getXFraction (event) {
-        let sliderRect =  slider.getBoundingClientRect();
-        let localXFrac = ((event.clientX - sliderRect.left)) / (sliderRect.width - (3 * thumbWidth));
+        let sliderRect = slider.getBoundingClientRect();
+        let localXFrac = ((event.clientX - sliderRect.left)) / (sliderRect.width - (2 * thumbWidth));
         return clamp(localXFrac, 0, 1);
     }
 
@@ -146,8 +147,10 @@ function slider(elem, config){
     }
 
     function calcBarHeight (YFraction) {
+//        "calc(100% - 2em)"
         let sliderRect =  slider.getBoundingClientRect();
-        let newBarSize = (YFraction * (sliderRect.height - (3 * thumbWidth))) + 'px';
+        let newBarSize = (YFraction*100 + '%');
+//        console.log(thumbWidth + ', ' + newBarSize);
         if (newBarSize != oldBarSize) {
             oldBarSize = newBarSize;
             sliderBar.style.height = newBarSize;
@@ -156,7 +159,7 @@ function slider(elem, config){
 
     function calcBarWidth (XFraction) {
         let sliderRect =  slider.getBoundingClientRect();
-        let newBarSize = (XFraction * (sliderRect.width - (3 * thumbWidth))) + 'px';
+        let newBarSize = (XFraction * 100) + '%';
         if (newBarSize != oldBarSize) {
             oldBarSize = newBarSize;
             sliderBar.style.width = newBarSize;
@@ -213,6 +216,12 @@ function slider(elem, config){
 
     slider.externalValueChange = true;
 
+    slider.bang = function () {
+        console.log('bang!');
+        $(slider).trigger("data", {close: true})
+    }
+
+    
     // override setAttribute
 
     const mySetAttribute = slider.setAttribute;
@@ -239,14 +248,18 @@ function slider(elem, config){
 
     function setSliderBarStyle () {
         sliderBar.style.position = 'absolute';
-        sliderBar.style.backgroundColor = barColor;
+        sliderBar.style.background = barColor;
         sliderBar.style.border = 'none';
-        sliderBar.style.borderRadius = 'inherit';
+//        sliderBar.style.borderRadius = 'inherit';
     }
     
+
     function setDirection () {
-        direction = slider.getAttribute("direction") || 'up';
-        thumbWidth = '0.15em'; // will get reset below in case thumb == 'true';
+        let direction = slider.getAttribute("direction") || 'up';
+        let rect = slider.getBoundingClientRect(slider.parent);
+        console.log(window.getComputedStyle(slider).height);
+        console.log(rect.height);
+        thumbWidth = 0; // will get reset below in case thumb == 'true';
         switch (direction) {
         case 'right':
             sliderBar.style.height = '100%';
@@ -258,7 +271,7 @@ function slider(elem, config){
             if (thumb == 'true') {
                 thumbWidth = 1.5;
                 sliderBar.style.borderLeft = 'none';
-                sliderBar.style.borderRight = (sliderWidth/41) + 'px solid ' + thumbColor;
+                sliderBar.style.borderRight = '0.15em solid ' + thumbColor;
                 sliderBar.style.borderTop = 'none';
                 sliderBar.style.borderBottom = 'none';
             }
@@ -274,7 +287,7 @@ function slider(elem, config){
             sliderBar.style.bottom = '0px';
             if (thumb == 'true') {
                 thumbWidth = 1.5;
-                sliderBar.style.borderLeft = (sliderWidth/41) + 'px solid ' + thumbColor;
+                sliderBar.style.borderLeft = '0.15em solid ' + thumbColor;
                 sliderBar.style.borderRight = 'none';
                 sliderBar.style.borderTop = 'none';
                 sliderBar.style.borderBottom = 'none';
@@ -294,28 +307,29 @@ function slider(elem, config){
                 sliderBar.style.borderLeft = 'none';
                 sliderBar.style.borderRight = 'none';
                 sliderBar.style.borderTop = 'none';
-                sliderBar.style.borderBottom = (sliderHeight/41) + 'px solid ' + thumbColor;
+                sliderBar.style.borderBottom = '0.15em solid ' + thumbColor;
             }
             calcBarSize = calcBarHeight;
             getFraction = getYFractionRev;
             break;
         default: // 'up'
             sliderBar.style.width = '100%';
-            sliderBar.style.height = (getValFraction(value) * sliderHeight) + 'px';
-            sliderBar.style.left = '0px';
+            sliderBar.style.height = (getValFraction(value) * 100) + '%';
+            sliderBar.style.left = '0';
             sliderBar.style.right = '';
             sliderBar.style.top = '';
-            sliderBar.style.bottom = '0px';
+            sliderBar.style.bottom = '0';
             if (thumb == 'true') {
                 thumbWidth = 1.5;
                 sliderBar.style.borderLeft = 'none';
                 sliderBar.style.borderRight = 'none';
-                sliderBar.style.borderTop = (sliderHeight/41) + 'px solid ' + thumbColor;
+                sliderBar.style.borderTop =  '0.15em solid ' + thumbColor;
                 sliderBar.style.borderBottom = 'none';
             }
             calcBarSize = calcBarHeight;
             getFraction = getYFraction;
         }
+        console.log(thumbWidth);
     }
 
     function setSliderValue () {
@@ -399,11 +413,15 @@ function slider(elem, config){
 // initialization
 
     function initSlider () {
+        if (thumbColor == 'transparent')
+            thumb = false;
         setSliderBarStyle();
         sliderHeight = parseFloat(style.height.match(pxRegex)[1]);
         sliderWidth = parseFloat(style.width.match(pxRegex)[1]);
         setMinMaxMapping(sliderBar);
         slider.addEventListener('mousedown', mouseDownListener)
+        addEventListener('beforeunload', (event) => {
+            $(slider).trigger("data", {close: true})});
         slider.externalValueChange = true;
     }
 
