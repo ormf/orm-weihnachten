@@ -17,11 +17,16 @@
 (defun db->rms (db)
   (expt 10 (/ db 20)))
 
-;;; we need to define our variables
+(defun clip (val minvalue maxvalue)
+  (min maxvalue (max minvalue val)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; initialization
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; define some variables
+
 
 (setf *debug* nil)
 
@@ -39,8 +44,8 @@
   (setf x-bang (make-bang (lambda () (set-val x 0))))
   (setf x-db
         (make-computed
-         (lambda () (min 0 (max -40 (round (rms->db (get-val x))))))
-         (lambda (val) (%set-val x (max 0 (min 1 (float (if (<= val -40) 0 (db->rms val)))))))))
+         (lambda () (clip (round (rms->db (get-val x))) -40 0))
+         (lambda (val) (%set-val x (clip (float (if (<= val -40) 0 (db->rms val))) 0 1)))))
   (setf radio
         (make-computed
          (lambda () (round (/ (+ 40 (get-val x-db)) 40/7)))
